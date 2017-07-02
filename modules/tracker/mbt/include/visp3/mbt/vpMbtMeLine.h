@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -60,7 +60,7 @@
 class VISP_EXPORT vpMbtMeLine : public vpMeTracker
 {
   private:
-    vpMeSite PExt[2] ;
+    vpMeSite PExt[2];
     double rho, theta, theta_1;
     double delta ,delta_1;
     int sign;
@@ -111,7 +111,6 @@ class VISP_EXPORT vpMbtMeLine : public vpMeTracker
   private:
     void bubbleSortI();
     void bubbleSortJ();
-    void findSignal(const vpImage<unsigned char>& I, const vpMe *me, double *conv);
     void sample(const vpImage<unsigned char>&image);
     void seekExtremities(const vpImage<unsigned char> &I);
     void setExtremities();
@@ -119,7 +118,7 @@ class VISP_EXPORT vpMbtMeLine : public vpMeTracker
     void reSample(const vpImage<unsigned char>&image);
     void reSample(const vpImage<unsigned char>&image, vpImagePoint ip1, vpImagePoint ip2);
     void updateDelta();
-} ;
+};
 
 #endif // #ifndef DOXYGEN_SHOULD_SKIP_THIS
 

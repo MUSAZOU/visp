@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -229,7 +229,7 @@ vpMbXmlParser::read_camera (xmlDocPtr doc, xmlNodePtr node)
     }
   }
   
-  this->cam.initPersProjWithoutDistortion(d_px, d_py, d_u0, d_v0) ;
+  this->cam.initPersProjWithoutDistortion(d_px, d_py, d_u0, d_v0);
   
   if(!u0_node)
     std::cout << "camera : u0 : "<< this->cam.get_u0() << " (default)" <<std::endl;

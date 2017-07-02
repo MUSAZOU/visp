@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -46,18 +46,20 @@
 #if defined(VISP_HAVE_MODULE_KLT) && (defined(VISP_HAVE_OPENCV) && (VISP_HAVE_OPENCV_VERSION >= 0x020100))
 
 vpMbEdgeKltTracker::vpMbEdgeKltTracker()
-  : compute_interaction(true), lambda(0.8), thresholdKLT(2.), thresholdMBT(2.), maxIter(200)
+  : thresholdKLT(2.), thresholdMBT(2.), m_maxIterKlt(30),
+    w_mbt(), w_klt(), m_error_hybrid(), m_w_hybrid()
 {
   computeCovariance = false;
-  
-  vpMbKltTracker::setMaxIter(30);
 
   angleAppears = vpMath::rad(65);
   angleDisappears = vpMath::rad(75);
-  
+
 #ifdef VISP_HAVE_OGRE
   faces.getOgreContext()->setWindowName("MBT Hybrid");
 #endif
+
+  m_lambda = 0.8;
+  m_maxIter = 200;
 }
 
 /*!
@@ -74,11 +76,11 @@ vpMbEdgeKltTracker::~vpMbEdgeKltTracker()
 
   \param I : Input image.
 */
-void 
+void
 vpMbEdgeKltTracker::init(const vpImage<unsigned char>& I)
 {
   vpMbKltTracker::init(I);
-  
+
   initPyramid(I, Ipyramid);
 
   vpMbEdgeTracker::resetMovingEdge();
@@ -92,7 +94,7 @@ vpMbEdgeKltTracker::init(const vpImage<unsigned char>& I)
       upScale(i);
     }
   } while(i != 0);
-  
+
   cleanPyramid(Ipyramid);
 }
 
@@ -105,7 +107,7 @@ vpMbEdgeKltTracker::init(const vpImage<unsigned char>& I)
   \param I : image corresponding to the desired pose.
   \param cdMo : Pose to affect.
 */
-void           
+void
 vpMbEdgeKltTracker::setPose( const vpImage<unsigned char> &I, const vpHomogeneousMatrix& cdMo)
 {
     vpMbKltTracker::setPose(I, cdMo);
@@ -129,15 +131,15 @@ vpMbEdgeKltTracker::setPose( const vpImage<unsigned char> &I, const vpHomogeneou
         upScale(i);
       }
     } while(i != 0);
-    
+
     cleanPyramid(Ipyramid);
 }
 
 /*!
   Reset the tracker. The model is removed and the pose is set to identity.
-  The tracker needs to be initialized with a new model and a new pose. 
+  The tracker needs to be initialized with a new model and a new pose.
 */
-void    
+void
 vpMbEdgeKltTracker::resetTracker()
 {
   vpMbEdgeTracker::resetTracker();
@@ -147,43 +149,39 @@ vpMbEdgeKltTracker::resetTracker()
 unsigned int
 vpMbEdgeKltTracker::initMbtTracking(const unsigned int lvl)
 {
-  vpMbtDistanceLine *l ;
-  vpMbtDistanceCylinder *cy ;
-  vpMbtDistanceCircle *ci ;
-
   if(lvl  >= scales.size() || !scales[lvl]){
     throw vpException(vpException::dimensionError, "lvl not used.");
   }
 
   unsigned int nbrow  = 0;
   for(std::list<vpMbtDistanceLine*>::iterator it=lines[lvl].begin(); it!=lines[lvl].end(); ++it){
-    l = *it;
+    vpMbtDistanceLine *l = *it;
 
-    if(l->isVisible() && l->isTracked()){
-      nbrow += l->nbFeatureTotal ;
-      l->initInteractionMatrixError() ;
+    if(l->isTracked()){
+      l->initInteractionMatrixError();
+      nbrow += l->nbFeatureTotal;
     }
   }
-  
-  for(std::list<vpMbtDistanceCylinder*>::const_iterator it=cylinders[lvl].begin(); it!=cylinders[lvl].end(); ++it){
-    cy = *it;
 
-    if(cy->isVisible() && cy->isTracked()){
-      nbrow += cy->nbFeature ;
-      cy->initInteractionMatrixError() ;
+  for(std::list<vpMbtDistanceCylinder*>::const_iterator it=cylinders[lvl].begin(); it!=cylinders[lvl].end(); ++it){
+    vpMbtDistanceCylinder *cy = *it;
+
+    if(cy->isTracked()){
+      cy->initInteractionMatrixError();
+      nbrow += cy->nbFeature;
     }
   }
 
   for(std::list<vpMbtDistanceCircle*>::const_iterator it=circles[lvl].begin(); it!=circles[lvl].end(); ++it){
-    ci = *it;
+    vpMbtDistanceCircle *ci = *it;
 
-    if(ci->isVisible() && ci ->isTracked()){
-      nbrow += ci->nbFeature ;
-      ci->initInteractionMatrixError() ;
+    if(ci ->isTracked()){
+      ci->initInteractionMatrixError();
+      nbrow += ci->nbFeature;
     }
   }
 
-  return nbrow;  
+  return nbrow;
 }
 
 /*!
@@ -197,7 +195,7 @@ vpMbEdgeKltTracker::initMbtTracking(const unsigned int lvl)
 
   \sa loadConfigFile(const char*), vpXmlParser::cleanup()
 */
-void 
+void
 vpMbEdgeKltTracker::loadConfigFile(const std::string& configFile)
 {
   vpMbEdgeKltTracker::loadConfigFile(configFile.c_str());
@@ -211,7 +209,7 @@ vpMbEdgeKltTracker::loadConfigFile(const std::string& configFile)
   vpXmlParser::cleanup() before the exit().
 
   \throw vpException::ioError if the file has not been properly parsed (file not
-  found or wrong format for the data). 
+  found or wrong format for the data).
 
   \param configFile : full name of the xml file.
 
@@ -353,31 +351,27 @@ bool
 vpMbEdgeKltTracker::postTracking(const vpImage<unsigned char>& I, vpColVector &w_mbt, vpColVector &w_klt,
                                  const unsigned int lvl)
 {
-  
   postTrackingMbt(w_mbt,lvl);
 
   if (displayFeatures)
   {
     if(lvl == 0){
-      vpMbtDistanceLine* l;
       for(std::list<vpMbtDistanceLine*>::const_iterator it=lines[lvl].begin(); it!=lines[lvl].end(); ++it){
-        l = *it;
+        vpMbtDistanceLine *l = *it;
         if (l->isVisible() && l->isTracked()){
           l->displayMovingEdges(I);
         }
       }
-      
-      vpMbtDistanceCylinder *cy ;
+
       for(std::list<vpMbtDistanceCylinder*>::const_iterator it=cylinders[lvl].begin(); it!=cylinders[lvl].end(); ++it){
-        cy = *it;
+        vpMbtDistanceCylinder *cy = *it;
         // A cylinder is always visible: #FIXME AY: Still valid?
         if(cy->isTracked())
           cy->displayMovingEdges(I);
       }
 
-      vpMbtDistanceCircle *ci ;
       for(std::list<vpMbtDistanceCircle*>::const_iterator it=circles[lvl].begin(); it!=circles[lvl].end(); ++it){
-        ci = *it;
+        vpMbtDistanceCircle *ci = *it;
         if (ci->isVisible() && ci->isTracked()){
           ci->displayMovingEdges(I);
         }
@@ -394,8 +388,8 @@ vpMbEdgeKltTracker::postTracking(const vpImage<unsigned char>& I, vpColVector &w
   }
 
   vpMbEdgeTracker::updateMovingEdge(I);
-  
-  vpMbEdgeTracker::initMovingEdge(I, cMo) ;
+
+  vpMbEdgeTracker::initMovingEdge(I, cMo);
   vpMbEdgeTracker::reinitMovingEdge(I, cMo);
 
   if(computeProjError)
@@ -403,7 +397,7 @@ vpMbEdgeKltTracker::postTracking(const vpImage<unsigned char>& I, vpColVector &w
 
   if(reInit)
     return true;
-  
+
   return false;
 }
 
@@ -424,13 +418,13 @@ vpMbEdgeKltTracker::postTrackingMbt(vpColVector &w, const unsigned int lvl)
     throw vpException(vpException::dimensionError, "_lvl not used.");
   }
 
-  unsigned int n =0 ;
+  unsigned int n =0;
   vpMbtDistanceLine* l;
   for(std::list<vpMbtDistanceLine*>::const_iterator it=lines[lvl].begin(); it!=lines[lvl].end(); ++it){
     if((*it)->isTracked()){
       l = *it;
       unsigned int indexLine = 0;
-      double wmean = 0 ;
+      double wmean = 0;
 
       for(unsigned int a = 0 ; a < l->meline.size() ; a++)
       {
@@ -438,7 +432,7 @@ vpMbEdgeKltTracker::postTrackingMbt(vpColVector &w, const unsigned int lvl)
         if (l->nbFeature[a] > 0) itListLine = l->meline[a]->getMeList().begin();
 
         for (unsigned int i=0 ; i < l->nbFeature[a] ; i++){
-          wmean += w[n+indexLine] ;
+          wmean += w[n+indexLine];
           vpMeSite p = *itListLine;
           if (w[n+indexLine] < 0.5){
             p.setState(vpMeSite::M_ESTIMATOR);
@@ -450,10 +444,10 @@ vpMbEdgeKltTracker::postTrackingMbt(vpColVector &w, const unsigned int lvl)
         }
       }
 
-      n+= l->nbFeatureTotal ;
+      n+= l->nbFeatureTotal;
 
       if (l->nbFeatureTotal!=0)
-        wmean /= l->nbFeatureTotal ;
+        wmean /= l->nbFeatureTotal;
       else
         wmean = 1;
 
@@ -463,13 +457,13 @@ vpMbEdgeKltTracker::postTrackingMbt(vpColVector &w, const unsigned int lvl)
         l->Reinit = true;
     }
   }
-  
+
   // Same thing with cylinders as with lines
-  vpMbtDistanceCylinder *cy ;
+  vpMbtDistanceCylinder *cy;
   for(std::list<vpMbtDistanceCylinder*>::const_iterator it=cylinders[lvl].begin(); it!=cylinders[lvl].end(); ++it){
     if((*it)->isTracked()){
       cy = *it;
-      double wmean = 0 ;
+      double wmean = 0;
       std::list<vpMeSite>::iterator itListCyl1;
       std::list<vpMeSite>::iterator itListCyl2;
       if (cy->nbFeature > 0){
@@ -479,7 +473,7 @@ vpMbEdgeKltTracker::postTrackingMbt(vpColVector &w, const unsigned int lvl)
 
       wmean = 0;
       for(unsigned int i=0 ; i < cy->nbFeaturel1 ; i++){
-        wmean += w[n+i] ;
+        wmean += w[n+i];
         vpMeSite p = *itListCyl1;
         if (w[n+i] < 0.5){
           p.setState(vpMeSite::M_ESTIMATOR);
@@ -491,7 +485,7 @@ vpMbEdgeKltTracker::postTrackingMbt(vpColVector &w, const unsigned int lvl)
       }
 
       if (cy->nbFeaturel1!=0)
-        wmean /= cy->nbFeaturel1 ;
+        wmean /= cy->nbFeaturel1;
       else
         wmean = 1;
 
@@ -503,7 +497,7 @@ vpMbEdgeKltTracker::postTrackingMbt(vpColVector &w, const unsigned int lvl)
 
       wmean = 0;
       for(unsigned int i=cy->nbFeaturel1 ; i < cy->nbFeature ; i++){
-        wmean += w[n+i] ;
+        wmean += w[n+i];
         vpMeSite p = *itListCyl2;
         if (w[n+i] < 0.5){
           p.setState(vpMeSite::M_ESTIMATOR);
@@ -515,7 +509,7 @@ vpMbEdgeKltTracker::postTrackingMbt(vpColVector &w, const unsigned int lvl)
       }
 
       if (cy->nbFeaturel2!=0)
-        wmean /= cy->nbFeaturel2 ;
+        wmean /= cy->nbFeaturel2;
       else
         wmean = 1;
 
@@ -525,7 +519,7 @@ vpMbEdgeKltTracker::postTrackingMbt(vpColVector &w, const unsigned int lvl)
         cy->Reinit = true;
       }
 
-      n+= cy->nbFeature ;
+      n+= cy->nbFeature;
     }
   }
 
@@ -534,7 +528,7 @@ vpMbEdgeKltTracker::postTrackingMbt(vpColVector &w, const unsigned int lvl)
   for(std::list<vpMbtDistanceCircle*>::const_iterator it=circles[lvl].begin(); it!=circles[lvl].end(); ++it){
     if((*it)->isTracked()){
       ci = *it;
-      double wmean = 0 ;
+      double wmean = 0;
       std::list<vpMeSite>::iterator itListCir;
 
       if (ci->nbFeature > 0){
@@ -543,7 +537,7 @@ vpMbEdgeKltTracker::postTrackingMbt(vpColVector &w, const unsigned int lvl)
 
       wmean = 0;
       for(unsigned int i=0 ; i < ci->nbFeature ; i++){
-        wmean += w[n+i] ;
+        wmean += w[n+i];
         vpMeSite p = *itListCir;
         if (w[n+i] < 0.5){
           p.setState(vpMeSite::M_ESTIMATOR);
@@ -555,7 +549,7 @@ vpMbEdgeKltTracker::postTrackingMbt(vpColVector &w, const unsigned int lvl)
       }
 
       if (ci->nbFeature!=0)
-        wmean /= ci->nbFeature ;
+        wmean /= ci->nbFeature;
       else
         wmean = 1;
 
@@ -565,7 +559,7 @@ vpMbEdgeKltTracker::postTrackingMbt(vpColVector &w, const unsigned int lvl)
         ci->Reinit = true;
       }
 
-      n+= ci->nbFeature ;
+      n+= ci->nbFeature;
     }
   }
 }
@@ -574,64 +568,60 @@ vpMbEdgeKltTracker::postTrackingMbt(vpColVector &w, const unsigned int lvl)
   Realize the VVS loop for the tracking
 
   \param I : current image.
-  \param nbInfos : Size of the features.
-  \param w_mbt : weight vector for MBT.
-  \param w_klt : weight vector for KLT.
+  \param nbInfos : Size of the features (KLT).
+  \param nbrow : Size of the features (Edge).
   \param lvl : level of the pyramid.
 */
 void
-vpMbEdgeKltTracker::computeVVS(const vpImage<unsigned char>& I, const unsigned int &nbInfos, vpColVector &w_mbt, vpColVector &w_klt, const unsigned int lvl)
+vpMbEdgeKltTracker::computeVVS(const vpImage<unsigned char>& I, const unsigned int &nbInfos, unsigned int &nbrow, const unsigned int lvl)
 {
   vpColVector factor;
-  unsigned int nbrow = trackFirstLoop(I, factor, lvl);
-  
+  nbrow = trackFirstLoop(I, factor, lvl);
+
   if(nbrow < 4 && nbInfos < 4){
-    vpERROR_TRACE("\n\t\t Error-> not enough data") ;
-    throw vpTrackingException(vpTrackingException::notEnoughPointError, "\n\t\t Error-> not enough data");
+    throw vpTrackingException(vpTrackingException::notEnoughPointError, "Error: not enough features");
   }
   else if(nbrow < 4)
     nbrow = 0;
-  
+
+  unsigned int totalNbRows = nbrow + 2*nbInfos;
   double residu = 0;
   double residu_1 = -1;
   unsigned int iter = 0;
 
-  vpMatrix *L;
+  vpMatrix L(totalNbRows, 6);
   vpMatrix L_mbt, L_klt;     // interaction matrix
-  vpColVector *R;
+  vpColVector weighted_error(totalNbRows);
   vpColVector R_mbt, R_klt;  // residu
   vpMatrix L_true;
   vpMatrix LVJ_true;
-  //vpColVector R_true;
-  vpColVector w_true;
-  
+
   if(nbrow != 0){
-    L_mbt.resize(nbrow,6);
-    R_mbt.resize(nbrow);
+    L_mbt.resize(nbrow, 6, false);
+    R_mbt.resize(nbrow, false);
   }
-  
+
   if(nbInfos != 0){
-    L_klt.resize(2*nbInfos,6);
-    R_klt.resize(2*nbInfos);
+    L_klt.resize(2*nbInfos, 6, false);
+    R_klt.resize(2*nbInfos, false);
   }
-  
-  //vpColVector w;  // weight from MEstimator
+
   vpColVector v;  // "speed" for VVS
   vpRobust robust_mbt(0), robust_klt(0);
   vpHomography H;
 
   vpMatrix LTL;
   vpColVector LTR;
-  
-  double factorMBT = 1.0;
-  double factorKLT = 1.0;
-  
+
+  double factorMBT;// = 1.0;
+  double factorKLT;// = 1.0;
+
   //More efficient weight repartition for hybrid tracker should come soon...
 //   factorMBT = 1.0 - (double)nbrow / (double)(nbrow + nbInfos);
 //   factorKLT = 1.0 - factorMBT;
   factorMBT = 0.35;
   factorKLT = 0.65;
-  
+
   if (nbrow < 4)
     factorKLT = 1.;
   if (nbInfos < 4)
@@ -642,24 +632,37 @@ vpMbEdgeKltTracker::computeVVS(const vpImage<unsigned char>& I, const unsigned i
 
   vpHomogeneousMatrix cMoPrev;
   vpHomogeneousMatrix ctTc0_Prev;
-  vpColVector m_error_prev(2*nbInfos + nbrow);
-  vpColVector m_w_prev(2*nbInfos + nbrow);
-  double mu = 0.01;
-  
-  while( ((int)((residu - residu_1)*1e8) !=0 )  && (iter<maxIter) ){   
-    L = new vpMatrix();
-    R = new vpColVector();
-    
-    if(nbrow >= 4)
-      trackSecondLoop(I,L_mbt,R_mbt,cMo,lvl);
-      
-    if(nbInfos >= 4){
+  vpColVector m_error_prev;
+  vpColVector m_w_prev;
+
+  //Init size
+  m_error_hybrid.resize(totalNbRows, false);
+  m_w_hybrid.resize(totalNbRows, false);
+
+  if (nbrow != 0) {
+    w_mbt.resize(nbrow, false);
+    w_mbt = 1; //needed in vpRobust::psiTukey()
+    robust_mbt.resize(nbrow);
+  }
+
+  if (nbInfos != 0) {
+    w_klt.resize(2*nbInfos, false);
+    w_klt = 1; //needed in vpRobust::psiTukey()
+    robust_klt.resize(2*nbInfos);
+  }
+
+  double mu = m_initialMu;
+
+  while( ((int)((residu - residu_1)*1e8) !=0 )  && (iter < m_maxIter) ){
+    if (nbrow >= 4)
+      trackSecondLoop(I, L_mbt, R_mbt, cMo, lvl);
+
+    if (nbInfos >= 4) {
       unsigned int shift = 0;
-      vpMbtDistanceKltPoints *kltpoly;
-    //  for (unsigned int i = 0; i < faces.size(); i += 1){
-      for(std::list<vpMbtDistanceKltPoints*>::const_iterator it=vpMbKltTracker::kltPolygons.begin(); it!=vpMbKltTracker::kltPolygons.end(); ++it){
-        kltpoly = *it;
-        if(kltpoly->polygon->isVisible() && kltpoly->isTracked() && kltpoly->hasEnoughPoints()){
+
+      for (std::list<vpMbtDistanceKltPoints*>::const_iterator it=vpMbKltTracker::kltPolygons.begin(); it!=vpMbKltTracker::kltPolygons.end(); ++it) {
+        vpMbtDistanceKltPoints *kltpoly = *it;
+        if (kltpoly->polygon->isVisible() && kltpoly->isTracked() && kltpoly->hasEnoughPoints()) {
           vpSubColVector subR(R_klt, shift, 2*kltpoly->getCurrentNumberPoints());
           vpSubMatrix subL(L_klt, shift, 0, 2*kltpoly->getCurrentNumberPoints(), 6);
           kltpoly->computeHomography(ctTc0, H);
@@ -668,17 +671,16 @@ vpMbEdgeKltTracker::computeVVS(const vpImage<unsigned char>& I, const unsigned i
         }
       }
 
-      vpMbtDistanceKltCylinder *kltPolyCylinder;
-      for(std::list<vpMbtDistanceKltCylinder*>::const_iterator it=kltCylinders.begin(); it!=kltCylinders.end(); ++it){
-        kltPolyCylinder = *it;
+      for (std::list<vpMbtDistanceKltCylinder*>::const_iterator it=kltCylinders.begin(); it!=kltCylinders.end(); ++it) {
+        vpMbtDistanceKltCylinder *kltPolyCylinder = *it;
 
         if(kltPolyCylinder->isTracked() && kltPolyCylinder->hasEnoughPoints())
         {
           vpSubColVector subR(R_klt, shift, 2*kltPolyCylinder->getCurrentNumberPoints());
           vpSubMatrix subL(L_klt, shift, 0, 2*kltPolyCylinder->getCurrentNumberPoints(), 6);
-          try{
+          try {
             kltPolyCylinder->computeInteractionMatrixAndResidu(ctTc0,subR, subL);
-          }catch(...){
+          } catch(...) {
             throw vpTrackingException(vpTrackingException::fatalError, "Cannot compute interaction matrix");
           }
 
@@ -687,87 +689,73 @@ vpMbEdgeKltTracker::computeVVS(const vpImage<unsigned char>& I, const unsigned i
       }
     }
 
-    bool reStartFromLastIncrement = false;
-    if(iter != 0 && m_optimizationMethod == vpMbTracker::LEVENBERG_MARQUARDT_OPT){
-      if(m_error.sumSquare()/(double)(2*nbInfos + nbrow) > m_error_prev.sumSquare()/(double)(2*nbInfos + nbrow)){
-        mu *= 10.0;
-
-        if(mu > 1.0)
-          throw vpTrackingException(vpTrackingException::fatalError, "Optimization diverged");
-
-        cMo = cMoPrev;
-        m_error = m_error_prev;
-        m_w = m_w_prev;
-        ctTc0 = ctTc0_Prev;
-        reStartFromLastIncrement = true;
-      }
+    /* residuals */
+    if (nbrow > 3) {
+      m_error_hybrid.insert(0, R_mbt);
     }
 
-    if(!reStartFromLastIncrement){
-      if(iter == 0){
-        m_w.resize(nbrow + 2*nbInfos);
-        m_w=1;
+    if (nbInfos > 3) {
+      m_error_hybrid.insert(nbrow, R_klt);
+    }
 
-        if(nbrow != 0){
-          w_mbt.resize(nbrow);
-          w_mbt = 1;
-          robust_mbt.resize(nbrow);
-        }
-
-        if(nbInfos != 0){
-          w_klt.resize(2*nbInfos);
-          w_klt = 1;
-          robust_klt.resize(2*nbInfos);
-        }
-
-        w_true.resize(nbrow + 2*nbInfos);
+    unsigned int cpt = 0;
+    while (cpt< (nbrow+2*nbInfos)) {
+      if (cpt<(unsigned)nbrow) {
+        m_w_hybrid[cpt] = ((w_mbt[cpt] * factor[cpt]) * factorMBT);
+      } else {
+        m_w_hybrid[cpt] = (w_klt[cpt-nbrow] * factorKLT);
       }
+      cpt++;
+    }
 
+    bool reStartFromLastIncrement = false;
+    computeVVSCheckLevenbergMarquardt(iter, m_error_hybrid, m_error_prev, cMoPrev, mu, reStartFromLastIncrement, &m_w_prev);
+    if (reStartFromLastIncrement) {
+      ctTc0 = ctTc0_Prev;
+    }
+
+    if (!reStartFromLastIncrement) {
         /* robust */
-      if(nbrow > 3){
+      if (nbrow > 3) {
         residuMBT = 0;
         for(unsigned int i = 0; i < R_mbt.getRows(); i++)
           residuMBT += fabs(R_mbt[i]);
         residuMBT /= R_mbt.getRows();
 
-        robust_mbt.setIteration(iter);
         robust_mbt.setThreshold(thresholdMBT/cam.get_px());
         robust_mbt.MEstimator( vpRobust::TUKEY, R_mbt, w_mbt);
-        L->stack(L_mbt);
-        R->stack(R_mbt);
+
+        L.insert(L_mbt, 0, 0);
       }
 
-      if(nbInfos > 3){
+      if (nbInfos > 3) {
         residuKLT = 0;
         for(unsigned int i = 0; i < R_klt.getRows(); i++)
           residuKLT += fabs(R_klt[i]);
         residuKLT /= R_klt.getRows();
 
-        robust_klt.setIteration(iter);
         robust_klt.setThreshold(thresholdKLT/cam.get_px());
         robust_klt.MEstimator( vpRobust::TUKEY, R_klt, w_klt);
 
-        L->stack(L_klt);
-        R->stack(R_klt);
+        L.insert(L_klt, nbrow, 0);
       }
 
       unsigned int cpt = 0;
-      while(cpt< (nbrow+2*nbInfos)){
-        if(cpt<(unsigned)nbrow){
-          m_w[cpt] = ((w_mbt[cpt] * factor[cpt]) * factorMBT) ;
+      while (cpt< (nbrow+2*nbInfos)) {
+        if (cpt<(unsigned)nbrow) {
+          m_w_hybrid[cpt] = ((w_mbt[cpt] * factor[cpt]) * factorMBT);
+        } else {
+          m_w_hybrid[cpt] = (w_klt[cpt-nbrow] * factorKLT);
         }
-        else
-          m_w[cpt] = (w_klt[cpt-nbrow] * factorKLT);
         cpt++;
       }
 
-      m_error = (*R);
-      if(computeCovariance){
-        L_true = (*L);
-        if(!isoJoIdentity){
+      if (computeCovariance) {
+        L_true = L;
+        if (!isoJoIdentity) {
            vpVelocityTwistMatrix cVo;
            cVo.buildFrom(cMo);
-           LVJ_true = ((*L)*cVo*oJo);
+           LVJ_true = (L*cVo*oJo);
         }
       }
 
@@ -775,103 +763,43 @@ vpMbEdgeKltTracker::computeVVS(const vpImage<unsigned char>& I, const unsigned i
       residu = 0;
       double num = 0;
       double den = 0;
-      for (unsigned int i = 0; i < static_cast<unsigned int>(R->getRows()); i++){
-        num += m_w[i]*vpMath::sqr((*R)[i]);
-        den += m_w[i];
 
-        w_true[i] = m_w[i];
-        (*R)[i] *= m_w[i];
-        if(compute_interaction){
-          for (unsigned int j = 0; j < 6; j += 1){
-            (*L)[i][j] *= m_w[i];
+      for (unsigned int i = 0; i < weighted_error.getRows(); i++) {
+        num += m_w_hybrid[i]*vpMath::sqr(m_error_hybrid[i]);
+        den += m_w_hybrid[i];
+
+        weighted_error[i] = m_error_hybrid[i] * m_w_hybrid[i];
+        if (m_computeInteraction) {
+          for (unsigned int j = 0; j < 6; j += 1) {
+            L[i][j] *= m_w_hybrid[i];
           }
         }
       }
 
       residu = sqrt(num/den);
 
-      if(isoJoIdentity){
-          LTL = L->AtA();
-          computeJTR(*L, *R, LTR);
-
-          switch(m_optimizationMethod){
-          case vpMbTracker::LEVENBERG_MARQUARDT_OPT:
-          {
-            vpMatrix LMA(LTL.getRows(), LTL.getCols());
-            LMA.eye();
-            vpMatrix LTLmuI = LTL + (LMA*mu);
-            v = -lambda*LTLmuI.pseudoInverse(LTLmuI.getRows()*std::numeric_limits<double>::epsilon())*LTR;
-
-            if(iter != 0)
-              mu /= 10.0;
-
-            m_error_prev = m_error;
-            m_w_prev = m_w;
-            break;
-          }
-          case vpMbTracker::GAUSS_NEWTON_OPT:
-          default:
-            v = -lambda * LTL.pseudoInverse(LTL.getRows()*std::numeric_limits<double>::epsilon()) * LTR;
-          }
-      }
-      else{
-          vpVelocityTwistMatrix cVo;
-          cVo.buildFrom(cMo);
-          vpMatrix LVJ = ((*L)*cVo*oJo);
-          vpMatrix LVJTLVJ = (LVJ).AtA();
-          vpColVector LVJTR;
-          computeJTR(LVJ, *R, LVJTR);
-
-          switch(m_optimizationMethod){
-          case vpMbTracker::LEVENBERG_MARQUARDT_OPT:
-          {
-            vpMatrix LMA(LVJTLVJ.getRows(), LVJTLVJ.getCols());
-            LMA.eye();
-            vpMatrix LTLmuI = LVJTLVJ + (LMA*mu);
-            v = -lambda*LTLmuI.pseudoInverse(LTLmuI.getRows()*std::numeric_limits<double>::epsilon())*LVJTR;
-            v = cVo * v;
-
-            if(iter != 0)
-              mu /= 10.0;
-
-            m_error_prev = m_error;
-            m_w_prev = m_w;
-            break;
-          }
-          case vpMbTracker::GAUSS_NEWTON_OPT:
-          default:
-          {
-            v = -lambda*LVJTLVJ.pseudoInverse(LVJTLVJ.getRows()*std::numeric_limits<double>::epsilon())*LVJTR;
-            v = cVo * v;
-            break;
-          }
-          }
-      }
+      computeVVSPoseEstimation(isoJoIdentity, iter, L, LTL, weighted_error, m_error_hybrid, m_error_prev, LTR, mu, v, &m_w_hybrid, &m_w_prev);
 
       cMoPrev = cMo;
       ctTc0_Prev = ctTc0;
       ctTc0 = vpExponentialMap::direct(v).inverse() * ctTc0;
       cMo = ctTc0 * c0Mo;
     }
-    
-    iter++;
-    
-    delete L;
-    delete R;
-  }
-  
-  if(computeCovariance){
-    vpMatrix D;
-    D.diag(w_true);
 
-    // Note that here the covariance is computed on cMoPrev for time computation efficiency
-    if(isoJoIdentity){
-        covarianceMatrix = vpMatrix::computeCovarianceMatrixVVS(cMoPrev,m_error,L_true,D);
-    }
-    else{
-        covarianceMatrix = vpMatrix::computeCovarianceMatrixVVS(cMoPrev,m_error,LVJ_true,D);
-    }
+    iter++;
   }
+
+  computeCovarianceMatrixVVS(isoJoIdentity, m_w_hybrid, cMoPrev, L_true, LVJ_true, m_error_hybrid);
+}
+
+void
+vpMbEdgeKltTracker::computeVVSInit() {
+  throw vpException(vpException::fatalError, "vpMbEdgeKltTracker::computeVVSInit() should not be called!");
+}
+
+void
+vpMbEdgeKltTracker::computeVVSInteractionMatrixAndResidu() {
+  throw vpException(vpException::fatalError, "vpMbEdgeKltTracker::computeVVSInteractionMatrixAndResidu() should not be called!");
 }
 
 /*!
@@ -883,35 +811,35 @@ vpMbEdgeKltTracker::computeVVS(const vpImage<unsigned char>& I, const unsigned i
 */
 void
 vpMbEdgeKltTracker::track(const vpImage<unsigned char>& I)
-{ 
-  unsigned int nbInfos  = 0;
-  unsigned int nbFaceUsed = 0;
-  vpColVector w_klt;
-
+{
   try{
-    vpMbKltTracker::preTracking(I, nbInfos, nbFaceUsed);
+    vpMbKltTracker::preTracking(I);
   }
   catch(...){}
-  
-  if(nbInfos >= 4)
-    vpMbKltTracker::computeVVS(nbInfos, w_klt);
+
+  if(m_nbInfos >= 4) {
+    unsigned int old_maxIter = m_maxIter;
+    m_maxIter = m_maxIterKlt;
+    vpMbKltTracker::computeVVS();
+    m_maxIter = old_maxIter;
+  }
   else{
-    nbInfos = 0;
+    m_nbInfos = 0;
     // std::cout << "[Warning] Unable to init with KLT" << std::endl;
   }
-  
+
   vpMbEdgeTracker::trackMovingEdge(I);
- 
-  vpColVector w_mbt;
-  computeVVS(I, nbInfos, w_mbt, w_klt);
+
+  unsigned int nbrow = 0;
+  computeVVS(I, m_nbInfos, nbrow);
 
   if(postTracking(I, w_mbt, w_klt)){
     vpMbKltTracker::reinit(I);
-    
+
     // AY : Removed as edge tracked, if necessary, is reinitialized in postTracking()
 
 //    initPyramid(I, Ipyramid);
-    
+
 //    unsigned int i = (unsigned int)scales.size();
 //    do {
 //      i--;
@@ -921,7 +849,7 @@ vpMbEdgeKltTracker::track(const vpImage<unsigned char>& I)
 //        upScale(i);
 //      }
 //    } while(i != 0);
-    
+
 //    cleanPyramid(Ipyramid);
   }
 }
@@ -929,25 +857,24 @@ vpMbEdgeKltTracker::track(const vpImage<unsigned char>& I)
 unsigned int
 vpMbEdgeKltTracker::trackFirstLoop(const vpImage<unsigned char>& I, vpColVector &factor, const unsigned int lvl)
 {
-  vpMbtDistanceLine *l ;
-  vpMbtDistanceCylinder *cy ;
-  vpMbtDistanceCircle *ci ;
+  vpMbtDistanceLine *l;
+  vpMbtDistanceCylinder *cy;
+  vpMbtDistanceCircle *ci;
 
-  if(lvl  >= scales.size() || !scales[lvl]){
+  if(lvl >= scales.size() || !scales[lvl]){
     throw vpException(vpException::dimensionError, "_lvl not used.");
   }
 
-  unsigned int nbrow  = initMbtTracking(lvl);
-  
+  unsigned int nbrow = initMbtTracking(lvl);
+
   if (nbrow==0){
-//     vpERROR_TRACE("\n\t\t Error-> not enough data in the interaction matrix...") ;
-//     throw vpTrackingException(vpTrackingException::notEnoughPointError, "\n\t\t Error-> not enough data in the interaction matrix...");
+//     throw vpTrackingException(vpTrackingException::notEnoughPointError, "Error: not enough features in the interaction matrix...");
       return nbrow;
   }
-  
+
   factor.resize(nbrow);
   factor = 1;
-    
+
   unsigned int n = 0;
   for(std::list<vpMbtDistanceLine*>::const_iterator it=lines[lvl].begin(); it!=lines[lvl].end(); ++it){
     if((*it)->isTracked()){
@@ -981,12 +908,12 @@ vpMbEdgeKltTracker::trackFirstLoop(const vpImage<unsigned char>& I, vpColVector 
               ++itListLine;
               indexFeature++;
           }
-          n+= l->nbFeature[a] ;
+          n+= l->nbFeature[a];
         }
       }
     }
   }
-  
+
   for(std::list<vpMbtDistanceCylinder*>::const_iterator it=cylinders[lvl].begin(); it!=cylinders[lvl].end(); ++it){
     if((*it)->isTracked()){
       cy = *it;
@@ -1014,7 +941,7 @@ vpMbEdgeKltTracker::trackFirstLoop(const vpImage<unsigned char>& I, vpColVector 
         if (site.getState() != vpMeSite::NO_SUPPRESSION) factor[n+i] = 0.2;
       }
 
-      n+= cy->nbFeature ;
+      n+= cy->nbFeature;
     }
   }
 
@@ -1036,26 +963,26 @@ vpMbEdgeKltTracker::trackFirstLoop(const vpImage<unsigned char>& I, vpColVector 
         ++itCir;
       }
 
-      n+= ci->nbFeature ;
+      n+= ci->nbFeature;
     }
   }
-  
+
   return nbrow;
 }
 
-void 
+void
 vpMbEdgeKltTracker::trackSecondLoop(const vpImage<unsigned char>& I,  vpMatrix &L, vpColVector &error,
                                     vpHomogeneousMatrix& cMo_, const unsigned int lvl)
 {
   vpMbtDistanceLine* l;
-  vpMbtDistanceCylinder *cy ;
-  vpMbtDistanceCircle *ci ;
+  vpMbtDistanceCylinder *cy;
+  vpMbtDistanceCircle *ci;
 
-  unsigned int n = 0 ;
+  unsigned int n = 0;
   for(std::list<vpMbtDistanceLine*>::const_iterator it=lines[lvl].begin(); it!=lines[lvl].end(); ++it){
     if((*it)->isTracked()){
       l = *it;
-      l->computeInteractionMatrixError(cMo_) ;
+      l->computeInteractionMatrixError(cMo_);
       for (unsigned int i=0 ; i < l->nbFeatureTotal ; i++){
         for (unsigned int j=0; j < 6 ; j++){
           L[n+i][j] = l->L[i][j];
@@ -1065,24 +992,24 @@ vpMbEdgeKltTracker::trackSecondLoop(const vpImage<unsigned char>& I,  vpMatrix &
       n+= l->nbFeatureTotal;
     }
   }
-  
+
   for(std::list<vpMbtDistanceCylinder*>::const_iterator it=cylinders[lvl].begin(); it!=cylinders[lvl].end(); ++it){
     if((*it)->isTracked()){
       cy = *it;
-      cy->computeInteractionMatrixError(cMo_, I) ;
+      cy->computeInteractionMatrixError(cMo_, I);
       for(unsigned int i=0 ; i < cy->nbFeature ; i++){
         for(unsigned int j=0; j < 6 ; j++){
           L[n+i][j] = cy->L[i][j];
           error[n+i] = cy->error[i];
         }
       }
-      n+= cy->nbFeature ;
+      n+= cy->nbFeature;
     }
   }
   for(std::list<vpMbtDistanceCircle*>::const_iterator it=circles[lvl].begin(); it!=circles[lvl].end(); ++it){
     if((*it)->isTracked()){
       ci = *it;
-      ci->computeInteractionMatrixError(cMo_) ;
+      ci->computeInteractionMatrixError(cMo_);
       for(unsigned int i=0 ; i < ci->nbFeature ; i++){
         for(unsigned int j=0; j < 6 ; j++){
           L[n+i][j] = ci->L[i][j];
@@ -1090,7 +1017,7 @@ vpMbEdgeKltTracker::trackSecondLoop(const vpImage<unsigned char>& I,  vpMatrix &
         }
       }
 
-      n+= ci->nbFeature ;
+      n+= ci->nbFeature;
     }
   }
 }
@@ -1104,7 +1031,7 @@ void
 vpMbEdgeKltTracker::setCameraParameters(const vpCameraParameters& camera)
 {
   this->cam = camera;
-  
+
   vpMbEdgeTracker::setCameraParameters(cam);
   vpMbKltTracker::setCameraParameters(cam);
 }
@@ -1200,17 +1127,15 @@ vpMbEdgeKltTracker::display(const vpImage<unsigned char>& I, const vpHomogeneous
     }
   }
 
-  vpMbtDistanceKltPoints *kltpoly;
   for(std::list<vpMbtDistanceKltPoints*>::const_iterator it=kltPolygons.begin(); it!=kltPolygons.end(); ++it){
-    kltpoly = *it;
+    vpMbtDistanceKltPoints *kltpoly = *it;
     if(displayFeatures && kltpoly->hasEnoughPoints() && kltpoly->isTracked() && kltpoly->polygon->isVisible()) {
         kltpoly->displayPrimitive(I);
     }
   }
 
-  vpMbtDistanceKltCylinder *kltPolyCylinder;
   for(std::list<vpMbtDistanceKltCylinder*>::const_iterator it=kltCylinders.begin(); it!=kltCylinders.end(); ++it){
-    kltPolyCylinder = *it;
+    vpMbtDistanceKltCylinder *kltPolyCylinder = *it;
     if(displayFeatures && kltPolyCylinder->isTracked() && kltPolyCylinder->hasEnoughPoints())
       kltPolyCylinder->displayPrimitive(I);
   }
@@ -1253,17 +1178,15 @@ vpMbEdgeKltTracker::display(const vpImage<vpRGBa>& I, const vpHomogeneousMatrix 
     }
   }
 
-  vpMbtDistanceKltPoints *kltpoly;
   for(std::list<vpMbtDistanceKltPoints*>::const_iterator it=kltPolygons.begin(); it!=kltPolygons.end(); ++it){
-    kltpoly = *it;
+    vpMbtDistanceKltPoints *kltpoly = *it;
     if(displayFeatures && kltpoly->hasEnoughPoints() && kltpoly->isTracked() && kltpoly->polygon->isVisible()) {
         kltpoly->displayPrimitive(I);
     }
   }
 
-  vpMbtDistanceKltCylinder *kltPolyCylinder;
   for(std::list<vpMbtDistanceKltCylinder*>::const_iterator it=kltCylinders.begin(); it!=kltCylinders.end(); ++it){
-    kltPolyCylinder = *it;
+    vpMbtDistanceKltCylinder *kltPolyCylinder = *it;
     if(displayFeatures && kltPolyCylinder->isTracked() && kltPolyCylinder->hasEnoughPoints())
       kltPolyCylinder->displayPrimitive(I);
   }
@@ -1312,23 +1235,21 @@ vpMbEdgeKltTracker::reInitModel(const vpImage<unsigned char>& I, const char* cad
 #endif
 
   // delete the Klt Polygon features
-  vpMbtDistanceKltPoints *kltpoly;
   for(std::list<vpMbtDistanceKltPoints*>::const_iterator it=kltPolygons.begin(); it!=kltPolygons.end(); ++it){
-    kltpoly = *it;
+    vpMbtDistanceKltPoints *kltpoly = *it;
     if (kltpoly!=NULL){
-      delete kltpoly ;
+      delete kltpoly;
     }
-    kltpoly = NULL ;
+    kltpoly = NULL;
   }
   kltPolygons.clear();
 
-  vpMbtDistanceKltCylinder *kltPolyCylinder;
   for(std::list<vpMbtDistanceKltCylinder*>::const_iterator it=kltCylinders.begin(); it!=kltCylinders.end(); ++it){
-    kltPolyCylinder = *it;
+    vpMbtDistanceKltCylinder *kltPolyCylinder = *it;
     if (kltPolyCylinder!=NULL){
-      delete kltPolyCylinder ;
+      delete kltPolyCylinder;
     }
-    kltPolyCylinder = NULL ;
+    kltPolyCylinder = NULL;
   }
   kltCylinders.clear();
 
@@ -1337,9 +1258,9 @@ vpMbEdgeKltTracker::reInitModel(const vpImage<unsigned char>& I, const char* cad
   for(std::list<vpMbtDistanceCircle*>::const_iterator it=circles_disp.begin(); it!=circles_disp.end(); ++it){
     ci = *it;
     if (ci!=NULL){
-      delete ci ;
+      delete ci;
     }
-    ci = NULL ;
+    ci = NULL;
   }
 
   circles_disp.clear();
@@ -1354,8 +1275,8 @@ vpMbEdgeKltTracker::reInitModel(const vpImage<unsigned char>& I, const char* cad
     if(scales[i]){
       for(std::list<vpMbtDistanceLine*>::const_iterator it=lines[i].begin(); it!=lines[i].end(); ++it){
         l = *it;
-        if (l!=NULL) delete l ;
-        l = NULL ;
+        if (l!=NULL) delete l;
+        l = NULL;
       }
 
       for(std::list<vpMbtDistanceCylinder*>::const_iterator it=cylinders[i].begin(); it!=cylinders[i].end(); ++it){

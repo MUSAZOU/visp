@@ -1,7 +1,7 @@
 #############################################################################
 #
 # This file is part of the ViSP software.
-# Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+# Copyright (C) 2005 - 2017 by Inria. All rights reserved.
 #
 # This software is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -37,11 +37,6 @@
 
 set(VISP_EXTRA_C_FLAGS "")
 set(VISP_EXTRA_CXX_FLAGS "")
-
-# By default set release configuration
-if(NOT CMAKE_BUILD_TYPE)
-  set(CMAKE_BUILD_TYPE "Release" CACHE String "Choose the type of build, options are: None Debug Release" FORCE)
-endif()
 
 macro(add_extra_compiler_option option)
   if(CMAKE_BUILD_TYPE)
@@ -132,6 +127,16 @@ if(CMAKE_COMPILER_IS_GNUCXX)
   elseif(X86 OR X86_64)
     add_extra_compiler_option(-mno-ssse3)
   endif()
+endif()
+
+if(UNIX)
+  if(CMAKE_COMPILER_IS_GNUCXX)
+    add_extra_compiler_option(-fPIC)
+  endif()
+endif()
+
+if(DEFINED WINRT_8_1)
+  add_extra_compiler_option(/ZW) # do not use with 8.0
 endif()
 
 # Add user supplied extra options (optimization, etc...)

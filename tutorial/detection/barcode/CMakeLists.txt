@@ -2,7 +2,7 @@ project(tutorial-barcode)
 
 cmake_minimum_required(VERSION 2.6)
 
-find_package(VISP REQUIRED visp_core visp_detection visp_io visp_gui)
+find_package(VISP REQUIRED visp_core visp_detection visp_io visp_gui visp_sensor)
 
 set(tutorial_cpp
   tutorial-barcode-detector.cpp
@@ -22,3 +22,8 @@ foreach(data ${tutorial_data})
   visp_copy_data(tutorial-barcode-detector.cpp ${data})
 endforeach()
 
+if(VISP_HAVE_ZBAR)
+  # Add specific build flag to turn off warnings coming from zbar 3rd party
+  visp_set_source_file_compile_flag(tutorial-barcode-detector.cpp -Wno-unused-parameter)
+  visp_set_source_file_compile_flag(tutorial-barcode-detector-live.cpp -Wno-unused-parameter)
+endif()

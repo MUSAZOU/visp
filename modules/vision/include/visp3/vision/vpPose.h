@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -74,19 +74,20 @@
 
 
 class VISP_EXPORT vpPose
-{  
+{
 public:
+  //! Methods that could be used to estimate the pose from points.
   typedef enum
     {
-      LAGRANGE         ,
-      DEMENTHON        ,
-      LOWE             ,
-      RANSAC           ,
-      LAGRANGE_LOWE    ,
-      DEMENTHON_LOWE   ,
-      VIRTUAL_VS       ,
-      DEMENTHON_VIRTUAL_VS,
-      LAGRANGE_VIRTUAL_VS
+      LAGRANGE         , /*!< Linear Lagrange approach (does't need an initialization) */
+      DEMENTHON        , /*!< Linear Dementhon aproach (does't need an initialization) */
+      LOWE             , /*!< Lowe aproach based on a Levenberg Marquartd non linear minimization scheme that needs an initialization from Lagrange or Dementhon aproach */
+      RANSAC           , /*!< Robust Ransac aproach (does't need an initialization) */
+      LAGRANGE_LOWE    , /*!< Non linear Lowe aproach initialized by Lagrange approach */
+      DEMENTHON_LOWE   , /*!< Non linear Lowe aproach initialized by Dementhon approach */
+      VIRTUAL_VS       , /*!< Non linear virtual visual servoing approach that needs an initialization from Lagrange or Dementhon aproach */
+      DEMENTHON_VIRTUAL_VS, /*!< Non linear virtual visual servoing approach initialized by Dementhon approach */
+      LAGRANGE_VIRTUAL_VS   /*!< Non linear virtual visual servoing approach initialized by Lagrange approach */
     } vpPoseMethodType;
 
   enum FILTERING_RANSAC_FLAGS {
@@ -96,33 +97,45 @@ public:
     CHECK_DEGENERATE_POINTS           = 0x8   /*!< Check for degenerate points during the RANSAC. */
   };
 
-  unsigned int npt ;             //!< number of point used in pose computation
-  std::list<vpPoint> listP ;     //!< array of point (use here class vpPoint)
+  unsigned int npt;             //!< Number of point used in pose computation
+  std::list<vpPoint> listP;     //!< Array of point (use here class vpPoint)
 
-  double residual ;     //!< compute the residual in meter
+  double residual;     //!< Residual in meter
 
 protected :
   double lambda ;//!< parameters use for the virtual visual servoing approach
 
 private:
-  int vvsIterMax ; //! define the maximum number of iteration in VVS
+  //! define the maximum number of iteration in VVS
+  int vvsIterMax;
   //! variable used in the Dementhon approach
-  std::vector<vpPoint> c3d ;
+  std::vector<vpPoint> c3d;
   //! Flag used to specify if the covariance matrix has to be computed or not.
   bool computeCovariance;
   //! Covariance matrix
   vpMatrix covarianceMatrix;
-  
+  //! Found a solution when there are at least a minimum number of points in the consensus set
   unsigned int ransacNbInlierConsensus;
+  //! Maximum number of iterations for the RANSAC
   int ransacMaxTrials;
+  //! List of inlier points
   std::vector<vpPoint> ransacInliers;
+  //! List of inlier point indexes (from the input list)
   std::vector<unsigned int> ransacInlierIndex;
+  //! RANSAC threshold to consider a sample inlier or not
   double ransacThreshold;
+  //! Minimal distance point to plane to consider if the point belongs or not to the plane
   double distanceToPlaneForCoplanarityTest;
+  //! RANSAC flags to remove or not degenerate points
   int ransacFlags;
+  //! List of points used for the RANSAC (std::vector is contiguous whereas std::list is a linked list)
   std::vector<vpPoint> listOfPoints;
+  //! If true, use a parallel RANSAC implementation
   bool useParallelRansac;
+  //! Number of threads to spawn for the parallel RANSAC implementation
   int nbParallelRansacThreads;
+  //! Stop the optimization loop when the residual change (|r-r_prec|) <= epsilon
+  double vvsEpsilon;
 
 
   //For parallel RANSAC
@@ -181,7 +194,7 @@ private:
     bool poseRansacImpl();
   };
 
-#if defined(VISP_HAVE_PTHREAD) || defined(_WIN32)
+#if defined(VISP_HAVE_PTHREAD) || (defined(_WIN32) && !defined(WINRT_8_0))
   static vpThread::Return poseRansacImplThread(vpThread::Args arg);
 #endif
 
@@ -193,23 +206,14 @@ protected:
   int calculArbreDementhon(vpMatrix &b, vpColVector &U, vpHomogeneousMatrix &cMo) ;
 
 public:
-  // constructor
   vpPose() ;
-  //! destructor
   virtual ~vpPose() ;
-  //! Add a new point in this array
   void addPoint(const vpPoint& P) ;
-  //! Add a list of points
   void addPoints(const std::vector<vpPoint>& lP);
-  //! suppress all the point in the array of point
   void clearPoint() ;
 
-  //! compute the pose for a given method
-  bool computePose(vpPoseMethodType methode, vpHomogeneousMatrix &cMo, bool (*func)(vpHomogeneousMatrix *)=NULL) ;
-  //! compute the residual (i.e., the quality of the result)
-  //! compute the residual (in meter for pose M)
+  bool computePose(vpPoseMethodType method, vpHomogeneousMatrix &cMo, bool (*func)(vpHomogeneousMatrix *)=NULL) ;
   double computeResidual(const vpHomogeneousMatrix &cMo) const ;
-  //! test the coplanarity of the points
   bool coplanar(int &coplanar_plane_type) ;
   void displayModel(vpImage<unsigned char> &I,
                     vpCameraParameters &cam,
@@ -218,32 +222,30 @@ public:
                     vpCameraParameters &cam,
                     vpColor col=vpColor::none) ;
   void init() ;
-  //! compute the pose using Dementhon approach (planar object)
   void poseDementhonPlan(vpHomogeneousMatrix &cMo) ;
-  //! compute the pose using Dementhon approach (non planar object)
   void poseDementhonNonPlan(vpHomogeneousMatrix &cMo) ;
-  //! compute the pose using Lagrange approach (planar object)
   void poseLagrangePlan(vpHomogeneousMatrix &cMo, const int coplanar_plane_type=0) ;
-  //! compute the pose using Lagrange approach (non planar object)
   void poseLagrangeNonPlan(vpHomogeneousMatrix &cMo) ;
-  //! compute the pose using the Lowe approach (i.e., using the
-  //! Levenberg Marquartd non linear minimization approach)
   void poseLowe(vpHomogeneousMatrix & cMo) ;
-  //! compute the pose using the Ransac approach 
   bool poseRansac(vpHomogeneousMatrix & cMo, bool (*func)(vpHomogeneousMatrix *)=NULL) ;
-  //! compute the pose using a robust virtual visual servoing approach
   void poseVirtualVSrobust(vpHomogeneousMatrix & cMo) ;
-  //! compute the pose using virtual visual servoing approach
   void poseVirtualVS(vpHomogeneousMatrix & cMo) ;
-  void printPoint() ; 
+  void printPoint() ;
   void setDistanceToPlaneForCoplanarityTest(double d) ;
   void setLambda(double a) { lambda = a ; }
+  void setVvsEpsilon(const double eps) {
+    if (eps >= 0) {
+      vvsEpsilon = eps;
+    } else {
+      throw vpException(vpException::badValue, "Epsilon value must be >= 0.");
+    }
+  }
   void setVvsIterMax(int nb) { vvsIterMax = nb ; }
-  
+
   void setRansacNbInliersToReachConsensus(const unsigned int &nbC){ ransacNbInlierConsensus = nbC; }
   void setRansacThreshold(const double &t) {
     //Test whether or not t is > 0
-    if(t > 0) {
+    if(t > std::numeric_limits<double>::epsilon()) {
       ransacThreshold = t;
     } else {
       throw vpException(vpException::badValue, "The Ransac threshold must be positive as we deal with distance.");
@@ -253,26 +255,26 @@ public:
   unsigned int getRansacNbInliers() const { return (unsigned int) ransacInliers.size(); }
   std::vector<unsigned int> getRansacInlierIndex() const{ return ransacInlierIndex; }
   std::vector<vpPoint> getRansacInliers() const{ return ransacInliers; }
-  
+
   /*!
-    Set if the covaraince matrix has to be computed in the Virtual Visual Servoing approach.
+    Set if the covariance matrix has to be computed in the Virtual Visual Servoing approach.
 
     \param flag : True if the covariance has to be computed, false otherwise.
   */
   void setCovarianceComputation(const bool& flag) { computeCovariance = flag; }
-  
+
   /*!
     Get the covariance matrix computed in the Virtual Visual Servoing approach.
-    
+
     \warning The compute covariance flag has to be true if you want to compute the covariance matrix.
-    
+
     \sa setCovarianceComputation
   */
-  vpMatrix getCovarianceMatrix() const { 
+  vpMatrix getCovarianceMatrix() const {
     if(!computeCovariance)
       vpTRACE("Warning : The covariance matrix has not been computed. See setCovarianceComputation() to do it.");
-    
-    return covarianceMatrix; 
+
+    return covarianceMatrix;
   }
 
   /*!
@@ -346,9 +348,9 @@ public:
 
   static int computeRansacIterations(double probability, double epsilon,
                                      const int sampleSize=4, int maxIterations=2000);
-                     
-  static void findMatch(std::vector<vpPoint> &p2D, 
-                     std::vector<vpPoint> &p3D, 
+
+  static void findMatch(std::vector<vpPoint> &p2D,
+                     std::vector<vpPoint> &p3D,
                      const unsigned int &numberOfInlierToReachAConsensus,
                      const double &threshold,
                      unsigned int &ninliers,

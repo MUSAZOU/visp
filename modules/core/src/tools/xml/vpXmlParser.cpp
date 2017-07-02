@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -83,10 +83,8 @@ vpXmlParser::~vpXmlParser()
   \param _twin : The parser to copy.
 */
 vpXmlParser::vpXmlParser(const vpXmlParser& _twin)
- : nodeMap(), main_tag("config")
+ : nodeMap(_twin.nodeMap), main_tag(_twin.main_tag)
 {
-  main_tag = _twin.main_tag;
-  nodeMap = _twin.nodeMap;
 }
 
 /* utilities functions to read/write data from an xml document */

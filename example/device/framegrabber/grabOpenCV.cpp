@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -78,7 +78,8 @@ int main(int argc, char** argv)
     if(!cap.isOpened())  // check if we succeeded
       return -1;
     cv::Mat frame;
-    cap >> frame; // get a new frame from camera
+    int i=0;
+    while ((i++ < 100) && !cap.read(frame)) {}; // warm up camera by skiping unread frames
 
     std::cout << "Image size: "
 #if (VISP_HAVE_OPENCV_VERSION >= 0x030000)

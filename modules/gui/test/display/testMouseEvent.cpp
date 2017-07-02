@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -537,9 +537,9 @@ main(int argc, const char ** argv)
           std::cout << "A click in the image to continue..." << std::endl;
         }
         vpImagePoint ip;
-        vpMouseButton::vpMouseButtonType button;
 
         if (opt_click) {
+          vpMouseButton::vpMouseButtonType button;
           bool pressed = vpDisplay::getClick(I, ip, button, opt_click_blocking);
           if (pressed) {
             switch (button) {

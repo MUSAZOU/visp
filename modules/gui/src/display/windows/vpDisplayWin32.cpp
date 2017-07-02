@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -96,6 +96,7 @@ void vpDisplayWin32::init(vpImage<unsigned char> &I,
                              "Image not initialized")) ;
   }
 
+  setScale(m_scaleType, I.getWidth(), I.getHeight());
   init(I.getWidth(), I.getHeight(), x, y, title);
   window.renderer->setWidth(I.getWidth()/m_scale);
   window.renderer->setHeight(I.getHeight()/m_scale);
@@ -125,6 +126,7 @@ void vpDisplayWin32::init(vpImage<vpRGBa> &I,
                              "Image not initialized")) ;
   }
 
+  setScale(m_scaleType, I.getWidth(), I.getHeight());
   init (I.getWidth(), I.getHeight(), x, y, title) ;
   window.renderer->setWidth(I.getWidth()/m_scale);
   window.renderer->setHeight(I.getHeight()/m_scale);
@@ -157,6 +159,7 @@ void vpDisplayWin32::init(unsigned int width, unsigned int height,
     m_windowYPosition = y;
 
   //we prepare the window's thread creation
+  setScale(m_scaleType, width, height);
   threadParam * param = new threadParam;
   param->x = m_windowXPosition;
   param->y = m_windowYPosition;
@@ -571,13 +574,10 @@ vpDisplayWin32::getPointerMotionEvent (vpImagePoint &ip)
   //wait if the window is not initialized
   waitForInit();
 
-  bool ret = false;
-
-  ret = (WAIT_OBJECT_0 == WaitForSingleObject(window.semaMove, 0));
+  bool ret = (WAIT_OBJECT_0 == WaitForSingleObject(window.semaMove, 0));
   if (ret)
   {
     double u, v;
-    std::cout << "toto";
     //tells the window there has been a getclick demand
     //PostMessage(window.getHWnd(), vpWM_GETPOINTERMOTIONEVENT, 0,0);
 

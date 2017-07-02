@@ -1,7 +1,7 @@
 #############################################################################
 #
 # This file is part of the ViSP software.
-# Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+# Copyright (C) 2005 - 2017 by Inria. All rights reserved.
 #
 # This software is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -63,6 +63,9 @@ if(WIN32 AND NOT CYGWIN)
         list(APPEND opt_libs "${WS2_32_LIBRARY}")
       endif()
     endif()
+  elseif(WINRT)
+    # Since check_library_exists() and find_library() does't work to detect ws2_32.lib we add the lib that is part of Windows SDK
+    list(APPEND opt_libs "ws2_32.lib")
   else() # pure WIN32
     CHECK_LIBRARY_EXISTS("ws2_32.lib" getch "" HAVE_LIBWS2_32) # for inet_ntoa() and socket functionalities
     if(HAVE_LIBWS2_32)
@@ -220,7 +223,14 @@ if(USE_YARP)
   add_definitions(${YARP_DEFINES})
 endif(USE_YARP)
 
-# Math: gsl, lapack, OpenCV
+# Math: eigen3, gsl, lapack, OpenCV
+if(USE_EIGEN3)
+  if(EIGEN3_INCLUDE_DIRS)
+    list(APPEND opt_incs ${EIGEN3_INCLUDE_DIRS})
+  else()
+    list(APPEND opt_incs ${EIGEN3_INCLUDE_DIR})
+  endif()
+endif()
 if(USE_GSL)
   list(APPEND opt_incs ${GSL_INCLUDE_DIRS})
   list(APPEND opt_libs ${GSL_LIBRARIES})
@@ -257,8 +267,11 @@ if(MSVC)
   endif()
 endif()
 
-vp_add_module(core)
-vp_glob_module_sources()
+vp_add_module(core PRIVATE_OPTIONAL ${LAPACK_LIBRARIES})
+
+vp_source_group("Src" FILES "${VISP_MODULE_visp_core_BINARY_DIR}/version_string.inc")
+
+vp_glob_module_sources(SOURCES "${VISP_MODULE_visp_core_BINARY_DIR}/version_string.inc")
 vp_module_include_directories(${opt_incs})
 vp_create_module(${opt_libs})
 vp_create_compat_headers("include/visp3/core/vpConfig.h")

@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -106,7 +106,8 @@ int main(){
 class VISP_EXPORT vpDiskGrabber  : public vpFrameGrabber
 {
 private:
-  long image_number ; //!< id of the next image to be read
+  long image_number ; //!< id of the current image to be read
+  long image_number_next ; //!< id of the next image to be read
   int image_step ;    //!< increment between two image id
   unsigned int number_of_zero ; //!< number of zero in the image name (image.00000.pgm)
 

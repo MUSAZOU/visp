@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -46,6 +46,7 @@
 #include <visp3/robot/vpRobotPtu46.h>
 #include <visp3/robot/vpRobotException.h>
 #include <visp3/core/vpDebug.h>
+#include <visp3/core/vpIoTools.h>
 
 /* ---------------------------------------------------------------------- */
 /* --- STATIC ------------------------------------------------------------ */
@@ -767,84 +768,62 @@ vpRobotPtu46::getVelocity (vpRobot::vpControlFrameType frame)
 
 */
 bool
-vpRobotPtu46::readPositionFile(const char *filename, vpColVector &q)
+vpRobotPtu46::readPositionFile(const std::string &filename, vpColVector &q)
 {
-  FILE * pt_f ;
-  pt_f = fopen(filename,"r") ;
+  std::ifstream fd(filename.c_str(), std::ios::in);
 
-  if (pt_f == NULL) {
-    vpERROR_TRACE ("Can not open ptu-46 position file %s", filename);
+  if(! fd.is_open()) {
     return false;
   }
 
-  char line[FILENAME_MAX];
-  char head[] = "R:";
-  bool end = false;
+  std::string line;
+  std::string key("R:");
+  std::string id("#PTU-EVI - Position");
+  bool pos_found = false;
+  int lineNum = 0;
 
-  do {
-    // skip lines begining with # for comments
-    if (fgets (line, 100, pt_f) != NULL) {
-      if ( strncmp (line, "#", 1) != 0) {
-	// this line is not a comment
-	if ( fscanf (pt_f, "%s", line) != EOF)   {
-	  if ( strcmp (line, head) == 0)
-	    end = true; 	// robot position was found
-	}
-	else
-	  return (false); // end of file without position
+  q.resize(vpPtu46::ndof);
+
+  while(std::getline(fd, line)) {
+    lineNum ++;
+    if (lineNum == 1) {
+      if(! (line.compare(0, id.size(), id) == 0)) { // check if Ptu-46 position file
+        std::cout << "Error: this position file " << filename << " is not for Ptu-46 robot" << std::endl;
+        return false;
       }
     }
-    else {
-      return (false);// end of file
+    if((line.compare(0, 1, "#") == 0)) { // skip comment
+      continue;
     }
+    if((line.compare(0, key.size(), key) == 0)) { // decode position
+      // check if there are at least njoint values in the line
+      std::vector<std::string> chain = vpIoTools::splitChain(line, std::string(" "));
+      if (chain.size() < vpPtu46::ndof+1) // try to split with tab separator
+        chain = vpIoTools::splitChain(line, std::string("\t"));
+      if(chain.size() < vpPtu46::ndof+1)
+        continue;
 
+      std::istringstream ss(line);
+      std::string key_;
+      ss >> key_;
+      for (unsigned int i=0; i< vpPtu46::ndof; i++)
+        ss >> q[i];
+      pos_found = true;
+      break;
+    }
   }
-  while ( end != true );
 
-  double q1,q2;
-  // Read positions
-  fscanf(pt_f, "%lf %lf", &q1, &q2);
-  q.resize(vpPtu46::ndof) ;
+  // converts rotations from degrees into radians
+  q.deg2rad();
 
-  q[0] = vpMath::rad(q1) ; // Rot tourelle
-  q[1] = vpMath::rad(q2) ;
+  fd.close();
 
-  fclose(pt_f) ;
-  return (true);
-}
+  if (!pos_found) {
+    std::cout << "Error: unable to find a position for Ptu-46 robot in " << filename << std::endl;
+    return false;
+  }
 
-/*!
-
-  Get the robot displacement expressed in the camera frame since the last call
-  of this method.
-
-  \param v The measured displacement in camera frame. The dimension of v is 6
-  (tx, ty, ty, rx, ry, rz). Translations are expressed in meters, rotations in
-  radians.
-
-  \sa getDisplacement(), getArticularDisplacement()
-
-*/
-void
-vpRobotPtu46::getCameraDisplacement(vpColVector &v)
-{
-  getDisplacement(vpRobot::CAMERA_FRAME, v);
-
-}
-/*!
-
-  Get the robot articular displacement since the last call of this method.
-
-  \param d The measured articular displacement. The dimension of d is 2 (the
-  number of axis of the robot) with respectively d[0] (pan displacement),
-  d[1] (tilt displacement)
-
-  \sa getDisplacement(), getCameraDisplacement()
-
-*/
-void vpRobotPtu46::getArticularDisplacement(vpColVector  &d)
-{
-  getDisplacement(vpRobot::ARTICULAR_FRAME, d);
+  return true;
 }
 
 /*!
@@ -864,8 +843,6 @@ void vpRobotPtu46::getArticularDisplacement(vpColVector  &d)
 
   \exception vpRobotException::wrongStateError If a not supported frame type is
   given.
-
-  \sa getArticularDisplacement(), getCameraDisplacement()
 
 */
 void

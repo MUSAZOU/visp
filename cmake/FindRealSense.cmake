@@ -1,7 +1,7 @@
 #############################################################################
 #
 # This file is part of the ViSP software.
-# Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+# Copyright (C) 2005 - 2017 by Inria. All rights reserved.
 #
 # This software is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -34,6 +34,7 @@
 # REALSENSE_FOUND
 # REALSENSE_INCLUDE_DIRS
 # REALSENSE_LIBRARIES
+# REALSENSE_VERSION
 #
 # Authors:
 # Fabien Spindler
@@ -80,11 +81,13 @@ if(MSVC)
     PATHS
       ${REALSENSE_LIB_SEARCH_PATH}
   )
-  if(REALSENSE_LIBRARIES_OPT)
+  if(REALSENSE_LIBRARIES_DBG AND REALSENSE_LIBRARIES_OPT)
     set(REALSENSE_LIBRARIES optimized ${REALSENSE_LIBRARIES_OPT})
-  endif()
-  if(REALSENSE_LIBRARIES_DBG)
     list(APPEND REALSENSE_LIBRARIES debug ${REALSENSE_LIBRARIES_DBG})
+  elseif(REALSENSE_LIBRARIES_OPT)
+    set(REALSENSE_LIBRARIES ${REALSENSE_LIBRARIES_OPT})
+  elseif(REALSENSE_LIBRARIES_DBG)
+    set(REALSENSE_LIBRARIES ${REALSENSE_LIBRARIES_DBG})
   endif()
 
   mark_as_advanced(REALSENSE_LIBRARIES_OPT REALSENSE_LIBRARIES_DBG)
@@ -98,6 +101,16 @@ endif()
 
 if(REALSENSE_LIBRARIES AND REALSENSE_INCLUDE_DIRS)
   set(REALSENSE_FOUND TRUE)
+  vp_parse_header("${REALSENSE_INCLUDE_DIRS}/librealsense/rs.h" REALSENSE_VERSION_LINES RS_API_MAJOR_VERSION RS_API_MINOR_VERSION RS_API_PATCH_VERSION)
+  if(RS_API_MAJOR_VERSION)
+    set(REALSENSE_VERSION "${RS_API_MAJOR_VERSION}.${RS_API_MINOR_VERSION}.${RS_API_PATCH_VERSION}")
+  else()
+    # This is an old version
+    vp_parse_header("${REALSENSE_INCLUDE_DIRS}/librealsense/rs.h" REALSENSE_VERSION_LINES RS_API_VERSION)
+    set(REALSENSE_VERSION "${RS_API_VERSION}")
+    message(WARNING "The librealsense 3rd party is detected but this version is too old to build with ViSP. You should install a more recent version.")
+    set(REALSENSE_FOUND FALSE)
+  endif()
 else()
   set(REALSENSE_FOUND FALSE)
 endif()

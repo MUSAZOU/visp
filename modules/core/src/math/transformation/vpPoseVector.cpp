@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -330,7 +330,7 @@ vpTranslationVector vpPoseVector::getTranslationVector() const
  */
 vpRotationMatrix vpPoseVector::getRotationMatrix() const
 {
-  vpRotationMatrix R((*this)[0], (*this)[1], (*this)[2]);
+  vpRotationMatrix R((*this)[3], (*this)[4], (*this)[5]);
   return R;
 }
 
@@ -497,7 +497,7 @@ vpPoseVector::print(std::ostream& s, unsigned int length, char const* intro) con
   // increase totalLength according to maxBefore
   totalLength=vpMath::maximum(totalLength,maxBefore);
   // decrease maxAfter according to totalLength
-  maxAfter=std::min(maxAfter, totalLength-maxBefore);
+  maxAfter=(std::min)(maxAfter, totalLength-maxBefore);
   if (maxAfter==1) maxAfter=0;
 
   // the following line is useful for debugging

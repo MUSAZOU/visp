@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -127,7 +127,7 @@ int naiveNearestNeighbor( const float *vec,
 {
   int length = (int)(ref_descriptors->elem_size/(int)sizeof(float));
   int i, neighbor = -1;
-  double d, dist1 = 1e6, dist2 = 1e6;
+  double dist1 = 1e6, dist2 = 1e6;
   CvSeqReader reader, kreader;
   cvStartReadSeq( ref_keypoints, &kreader, 0 );
   cvStartReadSeq( ref_descriptors, &reader, 0 );
@@ -137,7 +137,7 @@ int naiveNearestNeighbor( const float *vec,
     const float* mvec = (const float*)reader.ptr;
     CV_NEXT_SEQ_ELEM( kreader.seq->elem_size, kreader );
     CV_NEXT_SEQ_ELEM( reader.seq->elem_size, reader );
-    d = compareSURFDescriptors( vec, mvec, dist2, length );
+    double d = compareSURFDescriptors( vec, mvec, dist2, length );
     if( d < dist1 )
     {
       dist2 = dist1;

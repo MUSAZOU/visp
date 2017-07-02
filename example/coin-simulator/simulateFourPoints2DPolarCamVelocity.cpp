@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -152,7 +152,7 @@ bool getOptions(int argc, const char **argv, std::string &ipath, bool &display)
 static
 void *mainLoop (void *_simu)
 {
-  vpSimulator *simu = (vpSimulator *)_simu ;
+  vpSimulator *simu = static_cast<vpSimulator *>(_simu);
   simu->initMainApplication() ;
 
   vpServo task ;

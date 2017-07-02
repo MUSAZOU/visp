@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -61,7 +61,7 @@
 #include <visp3/io/vpParseArgv.h>
 #include <visp3/mbt/vpMbKltMultiTracker.h>
 
-#define GETOPTARGS  "x:m:i:n:dchtfolwv"
+#define GETOPTARGS  "x:m:i:n:de:chtfolwv"
 
 
 void usage(const char *name, const char *badparam)
@@ -71,8 +71,8 @@ Example of tracking based on the 3D model.\n\
 \n\
 SYNOPSIS\n\
   %s [-i <test image path>] [-x <config file>]\n\
-  [-m <model name>] [-n <initialisation file base name>]\n\
-  [-t] [-c] [-d] [-h] [-f] [-o] [-w] [-l] [-v]",
+  [-m <model name>] [-n <initialisation file base name>] [-e <last frame index>] \n\
+  [-t] [-c] [-d] [-h] [-f] [-o] [-w] [-l] [-v]\n",
   name );
 
   fprintf(stdout, "\n\
@@ -95,6 +95,9 @@ OPTIONS:                                               \n\
      Specify the name of the file of the model\n\
      The model can either be a vrml model (.wrl) or a .cao file.\n\
 \n\
+  -e <last frame index>                                 \n\
+     Specify the index of the last frame. Once reached, the tracking is stopped\n\
+\n\
   -f                                  \n\
      Do not use the vrml model, use the .cao one. These two models are \n\
      equivalent and comes from ViSP-images-x.y.z.tar.gz available on the ViSP\n\
@@ -104,7 +107,7 @@ OPTIONS:                                               \n\
   -n <initialisation file base name>                                            \n\
      Base name of the initialisation file. The file will be 'base_name'.init .\n\
      This base name is also used for the optional picture specifying where to \n\
-     click (a .ppm picture).\
+     click (a .ppm picture).\n\
 \n\
   -t \n\
      Turn off the display of the the klt points. \n\
@@ -137,7 +140,7 @@ OPTIONS:                                               \n\
 
 
 bool getOptions(int argc, const char **argv, std::string &ipath, std::string &configFile, std::string &modelFile,
-                std::string &initFile, bool &displayKltPoints, bool &click_allowed, bool &display,
+                std::string &initFile, long &lastFrame, bool &displayKltPoints, bool &click_allowed, bool &display,
                 bool& cao3DModel, bool &useOgre, bool &showOgreConfigDialog, bool &useScanline, bool &computeCovariance)
 {
   const char *optarg_;
@@ -145,6 +148,7 @@ bool getOptions(int argc, const char **argv, std::string &ipath, std::string &co
   while ((c = vpParseArgv::parse(argc, argv, GETOPTARGS, &optarg_)) > 1) {
 
     switch (c) {
+    case 'e': lastFrame = atol(optarg_); break;
     case 'i': ipath = optarg_; break;
     case 'x': configFile = optarg_; break;
     case 'm': modelFile = optarg_; break;
@@ -189,6 +193,7 @@ main(int argc, const char ** argv)
     std::string modelFile;
     std::string opt_initFile;
     std::string initFile;
+    long opt_lastFrame = -1;
     bool displayKltPoints = true;
     bool opt_click_allowed = true;
     bool opt_display = true;
@@ -207,7 +212,7 @@ main(int argc, const char ** argv)
       ipath = env_ipath;
 
     // Read the command line options
-    if (!getOptions(argc, argv, opt_ipath, opt_configFile, opt_modelFile, opt_initFile, displayKltPoints,
+    if (!getOptions(argc, argv, opt_ipath, opt_configFile, opt_modelFile, opt_initFile, opt_lastFrame, displayKltPoints,
                     opt_click_allowed, opt_display, cao3DModel, useOgre, showOgreConfigDialog, useScanline,
                     computeCovariance)) {
       return (-1);
@@ -293,6 +298,9 @@ main(int argc, const char ** argv)
       return -1;
     }
 
+    if (opt_lastFrame > 1 && opt_lastFrame < reader.getLastFrameIndex())
+      reader.setLastFrameIndex(opt_lastFrame);
+
     reader.acquire(I1);
     I2 = I1;
 
@@ -313,8 +321,10 @@ main(int argc, const char ** argv)
     if (opt_display)
     {
 #if (defined VISP_HAVE_DISPLAY)
+      display1.setDownScalingFactor(vpDisplay::SCALE_AUTO);
+      display2.setDownScalingFactor(vpDisplay::SCALE_AUTO);
       display1.init(I1, 100, 100, "Test tracking (Left)");
-      display2.init(I2, (int) I1.getWidth()+100, 100, "Test tracking (Right)");
+      display2.init(I2, (int) I1.getWidth()/vpDisplay::getDownScalingFactor(I1)+110, 100, "Test tracking (Right)");
 #endif
       vpDisplay::display(I1);
       vpDisplay::display(I2);
@@ -346,9 +356,9 @@ main(int argc, const char ** argv)
 
     tracker.setCameraParameters(cam1, cam2);
     tracker.setKltOpencv(klt);
+    tracker.setKltMaskBorder(5);
     tracker.setAngleAppear( vpMath::rad(65) );
     tracker.setAngleDisappear( vpMath::rad(75) );
-    tracker.setMaskBorder(5);
 
     // Specify the clipping to use
     tracker.setNearClippingDistance(0.01);
@@ -380,7 +390,8 @@ main(int argc, const char ** argv)
       while(!vpDisplay::getClick(I1,false)){
         vpDisplay::display(I1);
         vpDisplay::displayText(I1, 15, 10, "click after positioning the object", vpColor::red);
-        vpDisplay::flush(I1) ;
+        vpDisplay::flush(I1);
+        vpTime::wait(100);
       }
     }
 
@@ -451,9 +462,9 @@ main(int argc, const char ** argv)
 
         tracker.setCameraParameters(cam1, cam2);
         tracker.setKltOpencv(klt);
+        tracker.setKltMaskBorder(5);
         tracker.setAngleAppear( vpMath::rad(65) );
         tracker.setAngleDisappear( vpMath::rad(75) );
-        tracker.setMaskBorder(5);
 
         // Specify the clipping to use
         tracker.setNearClippingDistance(0.01);
@@ -505,6 +516,9 @@ main(int argc, const char ** argv)
       vpDisplay::flush(I1);
       vpDisplay::flush(I2);
     }
+
+    std::cout << "Reached last frame: " << reader.getFrameIndex() << std::endl;
+
     if (opt_click_allowed && !quit) {
       vpDisplay::getClick(I1);
     }
@@ -537,7 +551,7 @@ int main()
 {
   std::cout << "visp_mbt, visp_gui modules and OpenCV are required to run this example." << std::endl;
   return 0;
-  
+
 }
 
 #endif

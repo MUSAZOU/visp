@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -55,13 +55,9 @@ vpBSpline::vpBSpline()
   
 */
 vpBSpline::vpBSpline(const vpBSpline &bspline)
-  : controlPoints(), knots(), p(3), // By default : p=3 for clubic spline
-    crossingPoints()
+  : controlPoints(bspline.controlPoints), knots(bspline.knots), p(bspline.p), // By default : p=3 for clubic spline
+    crossingPoints(bspline.crossingPoints)
 {
-  controlPoints = bspline.controlPoints;
-  knots = bspline.knots;
-  p = bspline.p;
-  crossingPoints = bspline.crossingPoints;
 }
 /*!
   Basic destructor.

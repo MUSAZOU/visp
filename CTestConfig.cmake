@@ -1,7 +1,7 @@
 #############################################################################
 #
 # This file is part of the ViSP software.
-# Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+# Copyright (C) 2005 - 2017 by Inria. All rights reserved.
 #
 # This software is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -45,7 +45,7 @@ set(CTEST_DROP_SITE_CDASH TRUE)
 
 #--------------------------------------------------------------------
 # BUILNAME variable construction
-# This variable will be used to set the build name which will appear 
+# This variable will be used to set the build name which will appear
 # on the ViSP dashboard http://cdash.irisa.fr/CDash/
 #--------------------------------------------------------------------
 # Start with the short system name, e.g. "Linux", "FreeBSD" or "Windows"
@@ -105,7 +105,7 @@ if(CMAKE_COMPILER_IS_GNUCC)
   #message("COMPILER_VERSION 2: ${COMPILER_VERSION}")
 
   set(BUILDNAME "${BUILDNAME}${COMPILER_VERSION}")
-  
+
 endif(CMAKE_COMPILER_IS_GNUCC)
 
 # Add the type of library generation, e.g. "Dynamic or Static"
@@ -125,7 +125,7 @@ endif(CMAKE_BUILD_TYPE)
 if(VISP_HAVE_AFMA4)
   set(BUILDNAME "${BUILDNAME}-Afma4")
 endif(VISP_HAVE_AFMA4)
- 
+
 # Add specific Afma6 robots
 if(VISP_HAVE_AFMA6)
   set(BUILDNAME "${BUILDNAME}-Afma6")
@@ -152,7 +152,7 @@ if(VISP_HAVE_VIRTUOSE)
 endif()
 
 #---- Framegrabers/Sensors ----
-# Firewire dc1394-2.x 
+# Firewire dc1394-2.x
 if(VISP_HAVE_DC1394)
   set(BUILDNAME "${BUILDNAME}-dc1394")
 endif(VISP_HAVE_DC1394)
@@ -221,13 +221,16 @@ endif(VISP_HAVE_OPENCV)
 
 #---- Mathematics ----
 # Lapack (Linear Algebra PACKage)
-if(VISP_HAVE_LAPACK_C)
+if(VISP_HAVE_LAPACK)
   set(BUILDNAME "${BUILDNAME}-lapack")
 endif()
 # GSL (Gnu Scientific Library)
 if(VISP_HAVE_GSL)
   set(BUILDNAME "${BUILDNAME}-gsl")
-endif(VISP_HAVE_GSL)
+endif()
+if(VISP_HAVE_EIGEN3)
+  set(BUILDNAME "${BUILDNAME}-eigen3")
+endif()
 
 #---- Simulator ----
 # Ogre

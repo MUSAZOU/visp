@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -286,8 +286,8 @@ main(int argc, const char ** argv)
     }
 
     while (! reader.end() ) {
-      std::cout << "Read frame: " << reader.getFrameIndex() << std::endl;
       reader.acquire(I);
+      std::cout << "Display frame: " << reader.getFrameIndex() << std::endl;
       if (opt_display)
       {
         vpDisplay::display(I) ;

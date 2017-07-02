@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -63,7 +63,8 @@
   \ingroup module_klt
 
   \brief Wrapper for the KLT (Kanade-Lucas-Tomasi) feature tracker
-  implemented in OpenCV.
+  implemented in OpenCV. Thus to enable this class OpenCV should be installed. Installation
+  instructions are provided here https://visp.inria.fr/3rd_opencv.
 
   The following example available in tutorial-klt-tracker.cpp shows how to use
   the main functions of the class.

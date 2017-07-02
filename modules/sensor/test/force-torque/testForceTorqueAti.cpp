@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -157,10 +157,10 @@ int main(int argc, char** argv)
 {
 #if defined(VISP_HAVE_ATIDAQ) && defined(VISP_HAVE_COMEDI)
 
-#ifdef VISP_HAVE_ACCESS_TO_NAS
+#ifdef VISP_HAVE_VIPER850_DATA
   (void)argc;
   (void)argv;
-  std::string calibfile = "/udd/fspindle/robot/Viper850/Viper850-code/ati/FT17824.cal";
+  std::string calibfile = std::string(VISP_VIPER850_DATA_PATH) + std::string("/ati/FT17824.cal");
   if (! vpIoTools::checkFilename(calibfile)) {
     std::cout << "ATI F/T calib file \"" << calibfile << "\" doesn't exist";
     return 0;

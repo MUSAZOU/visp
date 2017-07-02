@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -431,7 +431,7 @@ vpCameraParameters&
 void
 vpCameraParameters::computeFov(const unsigned int &w, const unsigned int &h)
 {
-  if( !isFov && w != width && h != height && w != 0 && h != 0){
+  if( (!isFov || w != width || h != height) && w != 0 && h != 0 ){
     fovNormals = std::vector<vpColVector>(4);
     
     isFov = true;

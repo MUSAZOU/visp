@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -113,7 +113,7 @@ void vpImageMorphology::erosion(vpImage<unsigned char> &I, const vpConnexityType
       for (; j < I.getWidth(); j++) {
         unsigned char min_value = null_value;
         for (int k = 0; k < 5; k++) {
-          min_value = std::min(min_value, *(ptr_curr_J + j + offset[k]));
+          min_value = (std::min)(min_value, *(ptr_curr_J + j + offset[k]));
         }
 
         *(ptr_curr_I + j) = min_value;
@@ -151,7 +151,7 @@ void vpImageMorphology::erosion(vpImage<unsigned char> &I, const vpConnexityType
       for (; j < I.getWidth(); j++) {
         unsigned char min_value = null_value;
         for (int k = 0; k < 9; k++) {
-          min_value = std::min(min_value, *(ptr_curr_J + j + offset[k]));
+          min_value = (std::min)(min_value, *(ptr_curr_J + j + offset[k]));
         }
 
         *(ptr_curr_I + j) = min_value;
@@ -230,7 +230,7 @@ void vpImageMorphology::dilatation(vpImage<unsigned char> &I, const vpConnexityT
       for (; j < I.getWidth(); j++) {
         unsigned char max_value = null_value;
         for (int k = 0; k < 5; k++) {
-          max_value = std::max(max_value, *(ptr_curr_J + j + offset[k]));
+          max_value = (std::max)(max_value, *(ptr_curr_J + j + offset[k]));
         }
 
         *(ptr_curr_I + j) = max_value;
@@ -268,7 +268,7 @@ void vpImageMorphology::dilatation(vpImage<unsigned char> &I, const vpConnexityT
       for (; j < I.getWidth(); j++) {
         unsigned char max_value = null_value;
         for (int k = 0; k < 9; k++) {
-          max_value = std::max(max_value, *(ptr_curr_J + j + offset[k]));
+          max_value = (std::max)(max_value, *(ptr_curr_J + j + offset[k]));
         }
 
         *(ptr_curr_I + j) = max_value;

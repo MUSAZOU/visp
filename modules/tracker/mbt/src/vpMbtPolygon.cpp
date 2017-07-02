@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -143,7 +143,7 @@ vpMbtPolygon::isVisible(const vpHomogeneousMatrix &cMo, const double alpha, cons
     /* a line is always visible when LOD is not used */
     isvisible = true;
     isappearing = false;
-    return  true ;
+    return  true;
   }
 
   // If the polygon has no orientation, the angle check visibility is always valid.
@@ -170,7 +170,7 @@ vpMbtPolygon::isVisible(const vpHomogeneousMatrix &cMo, const double alpha, cons
   }
   faceNormal.normalize();
 
-  vpColVector e4(3) ;
+  vpColVector e4(3);
   vpPoint pt;
   for (unsigned int i = 0; i < nbpt; i += 1){
     pt.set_X(pt.get_X() + p[i].get_X());
@@ -223,8 +223,8 @@ vpMbtPolygon::isVisible(const vpHomogeneousMatrix &cMo, const double alpha, cons
     isappearing = false;
   }
 
-  isvisible = false ;
-  return false ;
+  isvisible = false;
+  return false;
 }
 
 //###################################

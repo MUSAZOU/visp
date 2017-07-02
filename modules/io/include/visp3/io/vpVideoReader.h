@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -63,6 +63,23 @@
   \brief Class that enables to manipulate easily a video file or a sequence of
   images. As it inherits from the vpFrameGrabber Class, it can be used like an
   other frame grabber class.
+
+  This class has its own implementation to read a sequence of PGM and PPM images.
+
+  This class may benefit from optional 3rd parties:
+  - libpng: If installed this optional 3rd party is used to read a sequence of PNG images.
+    Installation instructions are provided here https://visp.inria.fr/3rd_png.
+  - libjpeg: If installed this optional 3rd party is used to read a sequence of JPEG images.
+    Installation instructions are provided here https://visp.inria.fr/3rd_jpeg.
+  - OpenCV: If installed this optional 3rd party is used to read a sequence of images
+    where images could be in TIFF, BMP, DIB, PBM, RASTER, JPEG2000 format. If libpng or
+    libjpeg is not installed, OpenCV is also used to consider these image formats. OpenCV
+    allows also to consider AVI, MPEG, MPEG4, MOV, OGV, WMV, FLV, MKV video formats.
+    Installation instructions are provided here https://visp.inria.fr/3rd_opencv.
+  - ffmpeg: If installed and enabled this optional 3rd party is used to read
+    AVI, MPEG, MPEG4, MOV, OGV, WMV, FLV, MKV video formats. It means that if OpenCV is
+    also installed, that OpenCV is not used to read a video. Installation instructions
+    are provided here https://visp.inria.fr/3rd_ffmpeg.
   
   The following example available in tutorial-video-reader.cpp shows how this
   class is really easy to use. It enables to read a video file named video.mpeg.
@@ -152,7 +169,7 @@ int main()
 
 class VISP_EXPORT vpVideoReader : public vpFrameGrabber
 {    
-  private:
+private:
     //!To read sequences of images
     vpDiskGrabber *imSequence;
 #ifdef VISP_HAVE_FFMPEG
@@ -206,6 +223,8 @@ class VISP_EXPORT vpVideoReader : public vpFrameGrabber
     long lastFrame;
     bool firstFrameIndexIsSet;
     bool lastFrameIndexIsSet;
+    //!The frame step
+    long frameStep;
 
 //private:
 //#ifndef DOXYGEN_SHOULD_SKIP_THIS
@@ -227,7 +246,7 @@ class VISP_EXPORT vpVideoReader : public vpFrameGrabber
 //    }
 //#endif
 
-  public:
+public:
     vpVideoReader();
     ~vpVideoReader();
     
@@ -239,8 +258,14 @@ class VISP_EXPORT vpVideoReader : public vpFrameGrabber
       \return true if the end of the sequence is reached.
     */
     inline bool end() {
-      if (frameCount > lastFrame )
-        return true;
+      if (frameStep > 0) {
+        if (frameCount + frameStep > lastFrame )
+          return true;
+      }
+      else if (frameStep < 0) {
+        if (frameCount + frameStep < firstFrame )
+          return true;
+      }
       return false;
     }
     bool getFrame(vpImage<vpRGBa> &I, long frame);
@@ -248,11 +273,13 @@ class VISP_EXPORT vpVideoReader : public vpFrameGrabber
     double getFramerate();
 
     /*!
-      Get the frame index of the next image. This index is updated at each call of the
+      Get the frame index of the current image. This index is updated at each call of the
       acquire method. It can be used to detect the end of a file (comparison
       with getLastFrameIndex()).
 
       \return Returns the current frame index.
+
+      \sa end()
     */
     inline long getFrameIndex() const { return frameCount;}
 
@@ -268,6 +295,12 @@ class VISP_EXPORT vpVideoReader : public vpFrameGrabber
       \return Returns the last frame index.
     */
     inline long getLastFrameIndex() const {return lastFrame;}
+    /*!
+      Gets the frame step.
+
+      \return Returns the frame step value.
+    */
+    inline long getFrameStep() const { return frameStep;}
     void open (vpImage< vpRGBa > &I);
     void open (vpImage< unsigned char > &I);
 
@@ -308,13 +341,27 @@ class VISP_EXPORT vpVideoReader : public vpFrameGrabber
       this->lastFrame = last_frame;
     }
 
-  private:
+    /*!
+      Sets the frame step index.
+	  The default frame step is 1
+
+	  \param frame_step : The frame index step.
+
+	  \sa setFrameStep()
+	*/
+	inline void setFrameStep(const long frame_step) {
+	  this->frameStep = frame_step;
+	}
+
+private:
     vpVideoFormatType getFormat(const char *filename);
     static std::string getExtension(const std::string &filename);
     void findFirstFrameIndex();
     void findLastFrameIndex();
-	bool isImageExtensionSupported();
-	bool isVideoExtensionSupported();
+    bool isImageExtensionSupported();
+    bool isVideoExtensionSupported();
+    long extractImageIndex(const std::string &imageName, const std::string &format);
+    bool checkImageNameFormat(const std::string &format);
 };
 
 #endif

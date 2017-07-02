@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -234,10 +234,9 @@ vpMeNurbs::vpMeNurbs()
 */
 vpMeNurbs::vpMeNurbs(const vpMeNurbs &menurbs)
   : vpMeTracker(menurbs),
-    nurbs(), dist(0.), nbControlPoints(20), beginPtFound(0), endPtFound(0), enableCannyDetection(false),
+    nurbs(menurbs.nurbs), dist(0.), nbControlPoints(20), beginPtFound(0), endPtFound(0), enableCannyDetection(false),
     cannyTh1(100.), cannyTh2(200.)
 {
-  nurbs = menurbs.nurbs;
   dist = menurbs.dist;
   nbControlPoints = menurbs.nbControlPoints;
   beginPtFound = menurbs.beginPtFound;

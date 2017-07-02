@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -66,19 +66,20 @@ void vp_rs_get_frame_data_impl(const rs::device *m_device, const std::map <rs::s
 }
 
 // Retrieve data from native stream
-void vp_rs_get_native_frame_data_impl(const rs::device *m_device, const std::map <rs::stream, rs::intrinsics> &m_intrinsics, const rs::stream &stream, unsigned char * const data)
+void vp_rs_get_native_frame_data_impl(const rs::device *m_device, const std::map <rs::stream, rs::intrinsics> &m_intrinsics, const rs::stream &native_stream,
+                                      unsigned char * const data, const rs::stream &stream)
 {
-  if (m_device->is_stream_enabled(stream)) {
-    std::map<rs::stream, rs::intrinsics>::const_iterator it_intrinsics = m_intrinsics.find(stream);
+  if (m_device->is_stream_enabled(native_stream)) {
+    std::map<rs::stream, rs::intrinsics>::const_iterator it_intrinsics = m_intrinsics.find(native_stream);
     if (it_intrinsics == m_intrinsics.end()) {
       std::stringstream ss;
-      ss << "Cannot find intrinsics for " << stream << "  stream!";
+      ss << "Cannot find intrinsics for " << native_stream << "  stream!";
       throw vpException(vpException::fatalError, ss.str());
     }
 
     size_t size = (size_t) (it_intrinsics->second.width * it_intrinsics->second.height);
 
-    switch (m_device->get_stream_format(stream)) {
+    switch (m_device->get_stream_format(native_stream)) {
       //8 bits
       case rs::format::raw8:
         std::cout << "Stream: raw8 not tested!" << std::endl;
@@ -135,7 +136,7 @@ void vp_rs_get_native_frame_data_impl(const rs::device *m_device, const std::map
     }
   }
   else {
-    throw vpException(vpException::fatalError, "RealSense Camera - stream %d not enabled!", (rs_stream) stream);
+    throw vpException(vpException::fatalError, "RealSense Camera - stream %d not enabled!", (rs_stream) native_stream);
   }
 }
 
@@ -152,12 +153,15 @@ void vp_rs_get_color_impl(const rs::device *m_device, const std::map <rs::stream
     unsigned int height = (unsigned int) it_intrinsics->second.height;
     color.resize(height, width);
 
-    if (m_device->get_stream_format(rs::stream::color) == rs::format::rgb8)
+    if (m_device->get_stream_format(rs::stream::color) == rs::format::rgb8) {
       vpImageConvert::RGBToRGBa( (unsigned char *) m_device->get_frame_data(rs::stream::color), (unsigned char *) color.bitmap, width, height );
-    else if (m_device->get_stream_format(rs::stream::color) == rs::format::rgba8)
+    } else if (m_device->get_stream_format(rs::stream::color) == rs::format::rgba8) {
       memcpy( (unsigned char *) color.bitmap, (unsigned char *) m_device->get_frame_data(rs::stream::color), width*height*sizeof(vpRGBa) );
-    else
+    } else if (m_device->get_stream_format(rs::stream::color) == rs::format::bgr8) {
+      vpImageConvert::BGRToRGBa( (unsigned char *) m_device->get_frame_data(rs::stream::color), (unsigned char *) color.bitmap, width, height );
+    } else {
       throw vpException(vpException::fatalError, "RealSense Camera - color stream not supported!");
+    }
   }
   else {
     throw vpException(vpException::fatalError, "RealSense Camera - color stream not enabled!");
@@ -177,12 +181,15 @@ void vp_rs_get_grey_impl(const rs::device *m_device, const std::map <rs::stream,
     unsigned int height = (unsigned int) it_intrinsics->second.height;
     grey.resize(height, width);
 
-    if (m_device->get_stream_format(rs::stream::color) == rs::format::rgb8)
+    if (m_device->get_stream_format(rs::stream::color) == rs::format::rgb8) {
       vpImageConvert::RGBToGrey( (unsigned char *) m_device->get_frame_data(rs::stream::color), (unsigned char *) grey.bitmap, width, height );
-    else if (m_device->get_stream_format(rs::stream::color) == rs::format::rgba8)
+    } else if (m_device->get_stream_format(rs::stream::color) == rs::format::rgba8) {
       vpImageConvert::RGBaToGrey( (unsigned char *) m_device->get_frame_data(rs::stream::color), (unsigned char *) grey.bitmap, width*height );
-    else
+    } else if (m_device->get_stream_format(rs::stream::color) == rs::format::bgr8) {
+      vpImageConvert::BGRToGrey( (unsigned char *) m_device->get_frame_data(rs::stream::color), (unsigned char *) grey.bitmap, width, height );
+    } else {
       throw vpException(vpException::fatalError, "RealSense Camera - color stream not supported!");
+    }
   }
   else {
     throw vpException(vpException::fatalError, "RealSense Camera - color stream not enabled!");
@@ -190,10 +197,11 @@ void vp_rs_get_grey_impl(const rs::device *m_device, const std::map <rs::stream,
 }
 
 // Retrieve point cloud
-void vp_rs_get_pointcloud_impl(const rs::device *m_device, const std::map <rs::stream, rs::intrinsics> &m_intrinsics, float max_Z, std::vector<vpColVector> &pointcloud)
+void vp_rs_get_pointcloud_impl(const rs::device *m_device, const std::map <rs::stream, rs::intrinsics> &m_intrinsics, float max_Z, std::vector<vpColVector> &pointcloud,
+                               const float invalidDepthValue=0.0f, const rs::stream &stream_depth=rs::stream::depth)
 {
   if (m_device->is_stream_enabled(rs::stream::depth)) {
-    std::map<rs::stream, rs::intrinsics>::const_iterator it_intrinsics = m_intrinsics.find(rs::stream::color);
+    std::map<rs::stream, rs::intrinsics>::const_iterator it_intrinsics = m_intrinsics.find(stream_depth);
     if (it_intrinsics == m_intrinsics.end()) {
       throw vpException(vpException::fatalError, "Cannot find intrinsics for depth stream!");
     }
@@ -202,7 +210,7 @@ void vp_rs_get_pointcloud_impl(const rs::device *m_device, const std::map <rs::s
 
     vpColVector p3d(4); // X,Y,Z coordinates
     rs::float3 depth_point;
-    uint16_t * depth = (uint16_t *)m_device->get_frame_data(rs::stream::depth);
+    uint16_t * depth = (uint16_t *)m_device->get_frame_data(stream_depth);
     int width = it_intrinsics->second.width;
     int height = it_intrinsics->second.height;
     pointcloud.resize((size_t) (width*height));
@@ -215,7 +223,7 @@ void vp_rs_get_pointcloud_impl(const rs::device *m_device, const std::map <rs::s
         depth_point = it_intrinsics->second.deproject(depth_pixel, scaled_depth);
 
         if (depth_point.z <= 0 || depth_point.z > max_Z) {
-          depth_point.x = depth_point.y = depth_point.z = 0;
+          depth_point.x = depth_point.y = depth_point.z = invalidDepthValue;
         }
         p3d[0] = depth_point.x;
         p3d[1] = depth_point.y;
@@ -233,10 +241,11 @@ void vp_rs_get_pointcloud_impl(const rs::device *m_device, const std::map <rs::s
 
 #ifdef VISP_HAVE_PCL
 // Retrieve point cloud
-void vp_rs_get_pointcloud_impl(const rs::device *m_device, const std::map<rs::stream, rs::intrinsics> &m_intrinsics, float max_Z, pcl::PointCloud<pcl::PointXYZ>::Ptr &pointcloud)
+void vp_rs_get_pointcloud_impl(const rs::device *m_device, const std::map<rs::stream, rs::intrinsics> &m_intrinsics, float max_Z, pcl::PointCloud<pcl::PointXYZ>::Ptr &pointcloud,
+                               const float invalidDepthValue=0.0f, const rs::stream &stream_depth=rs::stream::depth)
 {
   if (m_device->is_stream_enabled(rs::stream::depth)) {
-    std::map<rs::stream, rs::intrinsics>::const_iterator it_intrinsics = m_intrinsics.find(rs::stream::depth);
+    std::map<rs::stream, rs::intrinsics>::const_iterator it_intrinsics = m_intrinsics.find(stream_depth);
     if (it_intrinsics == m_intrinsics.end()) {
       throw vpException(vpException::fatalError, "Cannot find intrinsics for depth stream!");
     }
@@ -251,7 +260,7 @@ void vp_rs_get_pointcloud_impl(const rs::device *m_device, const std::map<rs::st
 
     // Fill the PointCloud2 fields.
     rs::float3 depth_point;
-    uint16_t * depth = (uint16_t *)m_device->get_frame_data(rs::stream::depth);
+    uint16_t * depth = (uint16_t *)m_device->get_frame_data(stream_depth);
 
     for (int i = 0; i < height; i++) {
       for (int j = 0; j < width; j++) {
@@ -261,7 +270,7 @@ void vp_rs_get_pointcloud_impl(const rs::device *m_device, const std::map<rs::st
         depth_point = it_intrinsics->second.deproject(depth_pixel, scaled_depth);
 
         if (depth_point.z <= 0 || depth_point.z > max_Z) {
-          depth_point.x = depth_point.y = depth_point.z = 0;
+          depth_point.x = depth_point.y = depth_point.z = invalidDepthValue;
         }
         pointcloud->points[(size_t) (i*width + j)].x = depth_point.x;
         pointcloud->points[(size_t) (i*width + j)].y = depth_point.y;
@@ -275,15 +284,16 @@ void vp_rs_get_pointcloud_impl(const rs::device *m_device, const std::map<rs::st
 }
 
 // Retrieve point cloud
-void vp_rs_get_pointcloud_impl(const rs::device *m_device, const std::map <rs::stream, rs::intrinsics> &m_intrinsics, float max_Z, pcl::PointCloud<pcl::PointXYZRGB>::Ptr &pointcloud)
+void vp_rs_get_pointcloud_impl(const rs::device *m_device, const std::map <rs::stream, rs::intrinsics> &m_intrinsics, float max_Z, pcl::PointCloud<pcl::PointXYZRGB>::Ptr &pointcloud,
+                               const float invalidDepthValue=0.0f, const rs::stream &stream_color=rs::stream::color, const rs::stream &stream_depth=rs::stream::depth)
 {
   if (m_device->is_stream_enabled(rs::stream::depth) && m_device->is_stream_enabled(rs::stream::color)) {
-    std::map<rs::stream, rs::intrinsics>::const_iterator it_intrinsics_depth = m_intrinsics.find(rs::stream::depth);
+    std::map<rs::stream, rs::intrinsics>::const_iterator it_intrinsics_depth = m_intrinsics.find(stream_depth);
     if (it_intrinsics_depth == m_intrinsics.end()) {
       throw vpException(vpException::fatalError, "Cannot find intrinsics for depth stream!");
     }
 
-    std::map<rs::stream, rs::intrinsics>::const_iterator it_intrinsics_color = m_intrinsics.find(rs::stream::color);
+    std::map<rs::stream, rs::intrinsics>::const_iterator it_intrinsics_color = m_intrinsics.find(stream_color);
     if (it_intrinsics_color == m_intrinsics.end()) {
       throw vpException(vpException::fatalError, "Cannot find intrinsics for color stream!");
     }
@@ -296,13 +306,13 @@ void vp_rs_get_pointcloud_impl(const rs::device *m_device, const std::map <rs::s
 
     const float depth_scale = m_device->get_depth_scale();
 
-    rs::extrinsics depth_2_color_extrinsic = m_device->get_extrinsics(rs::stream::depth, rs::stream::color);
+    rs::extrinsics depth_2_color_extrinsic = m_device->get_extrinsics(stream_depth, stream_color);
 
     // Fill the PointCloud2 fields.
     rs::float3 depth_point, color_point;
     rs::float2 color_pixel;
-    uint16_t * depth = (uint16_t *)m_device->get_frame_data(rs::stream::depth);
-    unsigned char * color = (unsigned char *)m_device->get_frame_data(rs::stream::color);
+    uint16_t * depth = (uint16_t *)m_device->get_frame_data(stream_depth);
+    unsigned char * color = (unsigned char *)m_device->get_frame_data(stream_color);
     int color_width = it_intrinsics_color->second.width;
     int color_height = it_intrinsics_color->second.height;
 
@@ -315,7 +325,7 @@ void vp_rs_get_pointcloud_impl(const rs::device *m_device, const std::map <rs::s
         depth_point = it_intrinsics_depth->second.deproject(depth_pixel, scaled_depth);
 
         if (depth_point.z <= 0 || depth_point.z > max_Z) {
-          depth_point.x = depth_point.y = depth_point.z = 0;
+          depth_point.x = depth_point.y = depth_point.z = invalidDepthValue;
         }
         pointcloud->points[(size_t) (i*depth_width + j)].x = depth_point.x;
         pointcloud->points[(size_t) (i*depth_width + j)].y = depth_point.y;

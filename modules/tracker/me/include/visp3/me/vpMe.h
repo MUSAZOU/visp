@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -90,9 +90,9 @@ public:
   vpMe(const vpMe &me) ;
   virtual ~vpMe() ;
   
-  const vpMe& operator=(const vpMe &me);
+  vpMe& operator=(const vpMe &me);
 #ifdef VISP_HAVE_CPP11_COMPATIBILITY
-  const vpMe& operator=(const vpMe &&me);
+  vpMe& operator=(const vpMe &&me);
 #endif
 
   void checkSamplestep(double &a) { if(a < min_samplestep) a = min_samplestep ; }

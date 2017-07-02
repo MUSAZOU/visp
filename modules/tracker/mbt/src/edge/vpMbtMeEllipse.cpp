@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -47,7 +47,7 @@
 
 #include <cmath>    // std::fabs
 #include <limits>   // numeric_limits
-#include <algorithm>    // std::min
+#include <algorithm>    // (std::min)
 
 
 /*!
@@ -63,10 +63,9 @@ vpMbtMeEllipse::vpMbtMeEllipse()
   Copy constructor.
 */
 vpMbtMeEllipse::vpMbtMeEllipse(const vpMbtMeEllipse &meellipse)
-  : vpMeTracker(meellipse), iPc(), a(0.), b(0.), e(0.),
+  : vpMeTracker(meellipse), iPc(meellipse.iPc), a(0.), b(0.), e(0.),
     ce(0.), se(0.), mu11(0.), mu20(0.), mu02(0.), thresholdWeight(0.), expecteddensity(0.)
 {
-  iPc = meellipse.iPc;
   a = meellipse.a;
   b = meellipse.b;
   e = meellipse.e;
@@ -194,8 +193,8 @@ vpMbtMeEllipse::computeProjectionError(const vpImage<unsigned char>& _I, double 
 
   double offset = std::floor(filterX.getRows() / 2.0f);
 //  std::cout << "offset=" << offset << std::endl;
-  int height = (int) _I.getHeight() ;
-  int width = (int) _I.getWidth() ;
+  int height = (int) _I.getHeight();
+  int width = (int) _I.getWidth();
 
   for(std::list<vpMeSite>::iterator it=list.begin(); it!=list.end(); ++it){
     double iSite = it->ifloat;
@@ -271,7 +270,7 @@ vpMbtMeEllipse::computeProjectionError(const vpImage<unsigned char>& _I, double 
       double angle1 = acos(vecSite * vecGrad);
       double angle2 = acos(vecSite * (-vecGrad));
 
-      _sumErrorRad += std::min(angle1,angle2);
+      _sumErrorRad += (std::min)(angle1,angle2);
 
       _nbFeatures++;
     }
@@ -294,18 +293,18 @@ vpMbtMeEllipse::sample(const vpImage<unsigned char> & I)
   if (!me) {
     vpDERROR_TRACE(2, "Tracking error: Moving edges not initialized");
     throw(vpTrackingException(vpTrackingException::initializationError,
-      "Moving edges not initialized")) ;
+      "Moving edges not initialized"));
   }
 
-  int height = (int)I.getHeight() ;
-  int width = (int)I.getWidth() ;
+  int height = (int)I.getHeight();
+  int width = (int)I.getWidth();
 
   //if (me->getSampleStep()==0)
   if (std::fabs(me->getSampleStep()) <= std::numeric_limits<double>::epsilon())
   {
-    std::cout << "In vpMbtMeEllipse::sample: " ;
-    std::cout << "function called with sample step = 0" ;
-    //return fatalError ;
+    std::cout << "In vpMbtMeEllipse::sample: ";
+    std::cout << "function called with sample step = 0";
+    //return fatalError;
   }
 
   // Approximation of the circumference of an ellipse:
@@ -322,7 +321,7 @@ vpMbtMeEllipse::sample(const vpImage<unsigned char> & I)
   list.clear();
 
   // sample positions
-  double k = 0 ;
+  double k = 0;
   for (int pt=0; pt < nb_points_to_track; pt++)
   {
     double j = a *cos(k) ; // equation of an ellipse
@@ -331,7 +330,7 @@ vpMbtMeEllipse::sample(const vpImage<unsigned char> & I)
     double iP_j = iPc.get_j() + ce *j - se *i;
     double iP_i = iPc.get_i() + se *j + ce *i;
 
-    //vpColor col = vpColor::red ;
+    //vpColor col = vpColor::red;
     //vpDisplay::displayCross(I, vpImagePoint(iP_i, iP_j),  5, col) ; //debug only
 
     // If point is in the image, add to the sample list
@@ -342,19 +341,19 @@ vpMbtMeEllipse::sample(const vpImage<unsigned char> & I)
                           / (mu20*iP_i - mu11*iP_j + mu11*iPc.get_j() - mu20*iPc.get_i()))
           - M_PI/2;
 
-      vpMeSite pix ;
-      pix.init((int)iP_i, (int)iP_j, theta) ;
-      pix.setDisplay(selectDisplay) ;
+      vpMeSite pix;
+      pix.init((int)iP_i, (int)iP_j, theta);
+      pix.setDisplay(selectDisplay);
       pix.setState(vpMeSite::NO_SUPPRESSION);
 
       list.push_back(pix);
       expecteddensity ++;
     }
-    k += incr ;
+    k += incr;
 
   }
 
-  vpMeTracker::initTracking(I) ;
+  vpMeTracker::initTracking(I);
 }
 
 
@@ -378,13 +377,13 @@ vpMbtMeEllipse::reSample(const vpImage<unsigned char>  &I)
   if (!me) {
     vpDERROR_TRACE(2, "Tracking error: Moving edges not initialized");
     throw(vpTrackingException(vpTrackingException::initializationError,
-      "Moving edges not initialized")) ;
+      "Moving edges not initialized"));
   }
 
-  unsigned int n = numberOfSignal() ;
+  unsigned int n = numberOfSignal();
   if ((double)n<0.9*expecteddensity){
-    sample(I) ;
-    vpMeTracker::track(I) ;
+    sample(I);
+    vpMeTracker::track(I);
   }
 }
 
@@ -408,7 +407,7 @@ vpMbtMeEllipse::updateTheta()
                         / (mu20*p_me.ifloat - mu11*p_me.jfloat + mu11*iPc.get_j() - mu20*iPc.get_i()))
         - M_PI/2;
 
-    p_me.alpha = theta ;
+    p_me.alpha = theta;
     *it = p_me;
   }
 }
@@ -472,16 +471,16 @@ vpMbtMeEllipse::initTracking(const vpImage<unsigned char> &I, const vpImagePoint
   ce = cos(e);
   se = sin(e);
 
-  sample(I) ;
+  sample(I);
 
-  vpMeTracker::initTracking(I) ;
+  vpMeTracker::initTracking(I);
 
   try{
-    track(I) ;
+    track(I);
   }
   catch(vpException &exception)
   {
-    throw(exception) ;
+    throw(exception);
   }
 }
 
@@ -494,11 +493,11 @@ void
 vpMbtMeEllipse::track(const vpImage<unsigned char> &I)
 {
   try{
-    vpMeTracker::track(I) ;
+    vpMeTracker::track(I);
   }
   catch(vpException &exception)
   {
-    throw(exception) ;
+    throw(exception);
   }
 }
 

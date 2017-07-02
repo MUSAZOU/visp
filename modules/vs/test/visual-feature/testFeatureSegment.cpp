@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -67,7 +67,7 @@
 
 */
 int main(int argc, const char **argv)
-{  
+{
   try {
 #if (defined (VISP_HAVE_X11) || defined (VISP_HAVE_GDI))
     int opt_no_display = 0;
@@ -79,7 +79,7 @@ int main(int argc, const char **argv)
     vpParseArgv::vpArgvInfo argTable[] =
     {
   #if (defined (VISP_HAVE_X11) || defined (VISP_HAVE_GDI))
-      {"-d", vpParseArgv::ARGV_CONSTANT, 0, (char *) &opt_no_display,
+      {"-d", vpParseArgv::ARGV_CONSTANT_INT, 0, (char *) &opt_no_display,
        "Disable display and graphics viewer."},
   #endif
       {"-normalized", vpParseArgv::ARGV_INT, (char*) NULL, (char *) &opt_normalized,

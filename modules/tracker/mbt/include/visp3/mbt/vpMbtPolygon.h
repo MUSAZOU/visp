@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -82,9 +82,9 @@ public:
   bool hasOrientation;
 
 public: 
-            vpMbtPolygon() ;
-            vpMbtPolygon(const vpMbtPolygon& mbtp) ;
-            virtual       ~vpMbtPolygon() ;
+            vpMbtPolygon();
+            vpMbtPolygon(const vpMbtPolygon& mbtp);
+            virtual       ~vpMbtPolygon();
   
    /*!
     Get the index of the face.
@@ -106,7 +106,7 @@ public:
 		  const vpCameraParameters &cam = vpCameraParameters(), const vpImage<unsigned char> &I = vpImage<unsigned char>());
             bool          isVisible() const {return isvisible;}
 
-            vpMbtPolygon& operator=(const vpMbtPolygon& mbtp) ;
+            vpMbtPolygon& operator=(const vpMbtPolygon& mbtp);
   
   /*!
     Set the index of the face.

@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -126,7 +126,7 @@ vpKeyboard::setRawMode(bool active)
 
     tcgetattr(STDIN_FILENO, &initial_settings);
 
-    new_settings = initial_settings;
+    //new_settings = initial_settings;
     //    cfmakeraw(&new_settings);
     new_settings = initial_settings;
     new_settings.c_lflag &= (unsigned int)~ICANON;

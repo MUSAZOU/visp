@@ -1,7 +1,7 @@
 #############################################################################
 #
 # This file is part of the ViSP software.
-# Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+# Copyright (C) 2005 - 2017 by Inria. All rights reserved.
 #
 # This software is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -121,7 +121,7 @@ if(VISP_RUNTIME AND VISP_ARCH)
     set(VISP_LIB_PATH "${VISP_CONFIG_PATH}/${VISP_ARCH}/${VISP_RUNTIME}/staticlib")
   elseif(VISP_STATIC AND EXISTS "${VISP_CONFIG_PATH}/${VISP_ARCH}/${VISP_RUNTIME}/staticlib/VISPConfig.cmake")
     set(VISP_LIB_PATH "${VISP_CONFIG_PATH}/${VISP_ARCH}/${VISP_RUNTIME}/staticlib")
-  elseif(VISP_STATIC EXISTS "${VISP_CONFIG_PATH}/${VISP_ARCH}/${VISP_RUNTIME}/lib/VISPConfig.cmake")
+  elseif(VISP_STATIC AND EXISTS "${VISP_CONFIG_PATH}/${VISP_ARCH}/${VISP_RUNTIME}/lib/VISPConfig.cmake")
     set(VISP_LIB_PATH "${VISP_CONFIG_PATH}/${VISP_ARCH}/${VISP_RUNTIME}/lib")
   endif()
 endif()

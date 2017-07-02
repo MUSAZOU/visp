@@ -1,7 +1,7 @@
 #############################################################################
 #
 # This file is part of the ViSP software.
-# Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+# Copyright (C) 2005 - 2017 by Inria. All rights reserved.
 #
 # This software is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -95,15 +95,25 @@ if(USE_PCL)
   # with these names.
   # An other way could be to include PCLConfig.cmake, but in that case, visp-config and visp.pc
   # will be not able to give the names of PCL libraries when used without CMake.
-
   foreach(lib_ ${PCL_LIBRARIES})
     # check if ${lib_} is in VTK_LIBRARIES and is a TARGET. If this is the case, we retrieve the full location
     list(FIND VTK_LIBRARIES ${lib_} lib_is_vtk_)
     if(NOT ${lib_is_vtk_} EQUAL -1 AND TARGET ${lib_})
-       # This is a VTK library
-       list(APPEND PCL_VTK_LIBRARIES ${lib_})
+      # This is a VTK library
+      list(APPEND PCL_VTK_LIBRARIES ${lib_})
     else()
-      list(APPEND opt_libs ${lib_})
+      # Other libraries sqlite3, boost..., optimized, debug
+      if(EXISTS ${lib_} OR ${lib_} MATCHES "optimized" OR ${lib_} MATCHES "debug")
+        list(APPEND opt_libs ${lib_})
+      else()
+        find_library(${lib_}_LIBRARY ${lib_} QUIET)
+        mark_as_advanced(${lib_}_LIBRARY)
+        if(${lib_}_LIBRARY)
+          list(APPEND opt_libs ${${lib_}_LIBRARY})
+        else()
+          list(APPEND opt_libs ${lib_})
+        endif()
+      endif()
     endif()
   endforeach()
 
@@ -114,14 +124,22 @@ if(USE_PCL)
     if(NOT ${vtkFiltering_exists_} EQUAL -1)
       list(APPEND PCL_VTK_LIBRARIES "vtkFiltering") # seems required on Ubuntu 16.04
     endif()
+    if(VTK_VERSION VERSION_EQUAL 6.2.0)
+      # Work arround to avoid build issue on ubuntu 16.04 with libvtk6-dev package
+      # cannot find -lvtkproj4
+      # See https://bugs.launchpad.net/ubuntu/+source/vtk6/+bug/1573234
+      list(REMOVE_ITEM opt_libs "vtkproj4")
+    endif()
     set(config_ "NONE" "RELEASE" "DEBUG" "RELEASEWITHDEBINFO" "RELWITHDEBINFO")
     foreach(lib_ ${PCL_VTK_LIBRARIES})
       foreach(imp_config_ ${config_})
-        get_target_property(lib_property_${imp_config_}_ ${lib_} IMPORTED_LOCATION_${imp_config_})
-
+        get_target_property(lib_property_${imp_config_}_ ${lib_} IMPORTED_IMPLIB_${imp_config_})
+        if(NOT EXISTS ${lib_property_${imp_config_}_})
+          get_target_property(lib_property_${imp_config_}_ ${lib_} IMPORTED_LOCATION_${imp_config_})
+        endif()
         # Under Unix, there is no specific suffix for PCL/VTK libraries.         # Under Windows, we add the "optimized", "debug" specific keywords
         if(WIN32 AND EXISTS "${lib_property_${imp_config_}_}" AND "${imp_config_}" MATCHES "RELEASE") # also valid for RELEASEWITHDEBINFO
-          list(APPEND opt_libs optimized "${component_property_${imp_config_}_}")
+          list(APPEND opt_libs optimized "${lib_property_${imp_config_}_}")
         elseif(WIN32 AND EXISTS "${lib_property_${imp_config_}_}" AND "${imp_config_}" MATCHES "DEBUG")
           list(APPEND opt_libs debug     "${lib_property_${imp_config_}_}")
         elseif(EXISTS "${lib_property_${imp_config_}_}")
@@ -129,6 +147,13 @@ if(USE_PCL)
         endif()
       endforeach()
     endforeach()
+    if(VTK_VERSION VERSION_EQUAL 6.2.0)
+      mark_as_advanced(Qt5Core_DIR Qt5Gui_DIR Qt5Network_DIR Qt5WebKit_DIR Qt5Widgets_DIR)
+    elseif(VTK_VERSION VERSION_EQUAL 7.1.0)
+      mark_as_advanced(DAVIDSDK_INCLUDE_DIR DAVIDSDK_LIBRARY DSSDK_DIR ENSENSO_INCLUDE_DIR ENSENSO_LIBRARY)
+      mark_as_advanced(GLEW_INCLUDE_DIR GLEW_GLEW_LIBRARY)
+      mark_as_advanced(Qt5Core_DIR Qt5Gui_DIR Qt5Sql_DIR Qt5Widgets_DIR RSSDK_DIR)
+    endif()
   endif()
 endif()
 
@@ -143,7 +168,7 @@ if(USE_FLYCAPTURE)
 endif()
 if(USE_REALSENSE)
   # Add specific build flag to turn off warnings coming from RealSense 3rd party
-  vp_set_source_file_compile_flag(src/rgb-depth/realsense/vpRealSense.cpp -Wno-strict-aliasing)
+  vp_set_source_file_compile_flag(src/rgb-depth/realsense/vpRealSense.cpp -Wno-strict-aliasing -Wno-pessimizing-move -Wno-unused-parameter)
 endif()
 
 vp_module_include_directories(${opt_incs})
@@ -152,6 +177,6 @@ vp_add_tests(CTEST_EXCLUDE_PATH framegrabber force-torque rgb-depth DEPENDS_ON v
 
 if(USE_PCL)
   # Add specific build flag to turn off warnings coming from PCL 3rd party
-  vp_set_source_file_compile_flag(test/rgb-depth/testRealSense.cpp -Wno-sign-compare -Wno-deprecated-declarations)
-  vp_set_source_file_compile_flag(test/rgb-depth/testRealSense2.cpp -Wno-deprecated-declarations)
+  vp_set_source_file_compile_flag(test/rgb-depth/testRealSense_R200.cpp -Wno-deprecated-declarations -Wno-inconsistent-missing-override -Wno-sign-conversion -Wno-float-equal -Wno-pessimizing-move -Wno-unused-parameter)
+  vp_set_source_file_compile_flag(test/rgb-depth/testRealSense_SR300.cpp -Wno-deprecated-declarations -Wno-inconsistent-missing-override -Wno-sign-conversion -Wno-float-equal -Wno-pessimizing-move -Wno-unused-parameter)
 endif()

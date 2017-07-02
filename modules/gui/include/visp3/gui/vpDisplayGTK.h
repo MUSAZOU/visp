@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -60,10 +60,9 @@
 
   \ingroup group_gui_display
 
-  \brief The vpDisplayGTK allows to display image using the GTK+ library
-  version 1.2.
-
-  The GTK+ 1.2 library has to be available on the system.
+  \brief The vpDisplayGTK allows to display image using the GTK 3rd party library.
+  Thus to enable this class GTK should be installed. Installation
+  instructions are provided here https://visp.inria.fr/3rd_gtk.
 
   The example below shows how to display an image with this video device.
   \code

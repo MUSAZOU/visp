@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -78,6 +78,9 @@
 #endif
 
 #if defined(_WIN32)
+// Include WinSock2.h before windows.h to ensure that winsock.h is not included by windows.h 
+// since winsock.h and winsock2.h are incompatible
+#  include <WinSock2.h> 
 #  include <windows.h>
 #endif
 
@@ -99,6 +102,7 @@ class VISP_EXPORT vpImageConvert
 
 public:
   static void createDepthHistogram(const vpImage<uint16_t> &src_depth, vpImage<vpRGBa> &dest_rgba);
+  static void createDepthHistogram(const vpImage<uint16_t> &src_depth, vpImage<unsigned char> &dest_depth);
   static void convert(const vpImage<unsigned char> &src, vpImage<vpRGBa> & dest) ;
   static void convert(const vpImage<vpRGBa> &src, vpImage<unsigned char> & dest) ;
 

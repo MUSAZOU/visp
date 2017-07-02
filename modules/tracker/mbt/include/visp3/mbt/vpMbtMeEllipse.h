@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -75,8 +75,8 @@
   An ellipse is also defined thanks to three other parameter which are \f$ a \f$, \f$ b \f$ and \f$ e \f$. \f$ a \f$ represents the semiminor axis and \f$ b \f$ is the semimajor axis. Here \f$ e \f$ is the angle made by the
   major axis and the i axis of the image frame \f$ (i,j) \f$. The following figure shows better meaning of those parameters.
 
-  \image html vpMbtMeEllipse.gif
-  \image latex vpMbtMeEllipse.ps  width=10cm
+  \image html vpMeEllipse.gif
+  \image latex vpMeEllipse.ps  width=10cm
 
   It is possible to compute the coordinates \f$ (i,j) \f$ of a point which belongs to the ellipse thanks to the following equations :
 
@@ -85,8 +85,8 @@
 
   Here the coordinates \f$ (i_c,j_c) \f$ are the coordinates of the ellipse center in the image frame and \f$ \alpha \f$ is an angle beetween \f$ [0,2\pi] \f$ and which enables to describe all the points of the ellipse.
 
-  \image html vpMbtMeEllipse2.gif
-  \image latex vpMbtMeEllipse2.ps  width=10cm
+  \image html vpMeEllipse2.gif
+  \image latex vpMeEllipse2.ps  width=10cm
 
   The example below available in tutorial-me-ellipse-tracker.cpp and described
   in \ref tutorial-tracking-me, section \ref tracking_me_ellipse shows how to use this class.
@@ -140,18 +140,18 @@ int main()
 class VISP_EXPORT vpMbtMeEllipse : public vpMeTracker
 {
 public:
-  vpMbtMeEllipse() ;
-  vpMbtMeEllipse(const vpMbtMeEllipse &meellipse) ;
-  virtual ~vpMbtMeEllipse() ;
+  vpMbtMeEllipse();
+  vpMbtMeEllipse(const vpMbtMeEllipse &meellipse);
+  virtual ~vpMbtMeEllipse();
 
   void computeProjectionError(const vpImage<unsigned char>& _I, double &_sumErrorRad, unsigned int &_nbFeatures);
 
-  void display(const vpImage<unsigned char>&I, vpColor col) ;
+  void display(const vpImage<unsigned char>&I, vpColor col);
   void display(const vpImage<unsigned char>& I) {vpMeTracker::display(I);} //Shouldn't be here since it's already in vpMeTracker
   /*!
     \return Expected number of moving edges to track along the ellipse.
    */
-  int getExpectedDensity() {return (int)expecteddensity;};
+  int getExpectedDensity() {return (int)expecteddensity;}
 
   /*!
     Gets the 2 order central moment \f$ \mu_{11} \f$.
@@ -200,7 +200,7 @@ public:
   void getEquationParam(double &A, double &B, double &E) { A = a; B = b; E = e; }
 
   void initTracking(const vpImage<unsigned char> &I, const vpImagePoint &ic,
-                    double mu20_p, double mu11_p, double mu02_p) ;
+                    double mu20_p, double mu11_p, double mu02_p);
 
   void track(const vpImage<unsigned char>& Im);
 
@@ -233,9 +233,9 @@ protected:
 
 private:
   void sample(const vpImage<unsigned char>&image);
-  void reSample(const vpImage<unsigned char> &I) ;
+  void reSample(const vpImage<unsigned char> &I);
   void updateTheta();
-  void suppressPoints() ;
+  void suppressPoints();
 };
 
 #endif // #ifndef DOXYGEN_SHOULD_SKIP_THIS

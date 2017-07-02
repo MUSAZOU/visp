@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -99,6 +99,9 @@ vpTriangle::operator=(const vpTriangle& tri)
   ptempo0 = tri.ptempo0;
   ptempo1 = tri.ptempo1;
   area = tri.area;
+  apex1 = tri.apex1;
+  apex2 = tri.apex2;
+  apex3 = tri.apex3;
   return *this;
 };
 

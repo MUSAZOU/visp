@@ -1,7 +1,7 @@
 #############################################################################
 #
 # This file is part of the ViSP software.
-# Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+# Copyright (C) 2005 - 2017 by Inria. All rights reserved.
 #
 # This software is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -35,6 +35,7 @@
 # DC1394_FOUND
 # DC1394_INCLUDE_DIRS
 # DC1394_LIBRARIES
+# DC1394_VERSION
 #
 # The two defines below are only useful to compile with libdc1394-2.x. In
 # that case DC1394_VERSION=2. Since the libdc1394-2.x API is not stable, we 
@@ -131,14 +132,17 @@ else(NOT UNIX)
 
     endif()
 
-  endif(DC1394_LIBRARY AND DC1394_INCLUDE_DIR)
+    get_filename_component(DC1394_LIB_DIR ${DC1394_LIBRARY} PATH)
+    vp_get_version_from_pkg("libdc1394-2" "${DC1394_LIB_DIR}/pkgconfig" DC1394_VERSION)
+
+  endif()
 
   ## --------------------------------
 
   mark_as_advanced(
     DC1394_LIBRARY
     DC1394_INCLUDE_DIR
-    DC1394_INCLUDE_DIR
+    DC1394_LIB_DIR
     DC1394_LIBRARIES
     DC1394_LIBRARY
     )

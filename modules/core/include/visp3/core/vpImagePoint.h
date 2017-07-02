@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -112,7 +112,7 @@ class VISP_EXPORT vpImagePoint
   /*!
     Copy operator.
   */
-  inline const vpImagePoint& operator=(const vpImagePoint &ip) {
+  inline vpImagePoint& operator=(const vpImagePoint &ip) {
     this->i = ip.i;
     this->j = ip.j;
     return *this;
@@ -121,7 +121,7 @@ class VISP_EXPORT vpImagePoint
   /*!
     Move operator.
   */
-  inline const vpImagePoint& operator=(const vpImagePoint &&ip) {
+  inline vpImagePoint& operator=(const vpImagePoint &&ip) {
     this->i = std::move(ip.i);
     this->j = std::move(ip.j);
     return *this;

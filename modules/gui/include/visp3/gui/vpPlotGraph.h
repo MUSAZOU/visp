@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -199,7 +199,7 @@ public:
     //void rescale(double &min, double &max, double &delta, const int nbDiv, int side);
     void resetPointList(const unsigned int curveNum);
 
-    void setCurveColor(const unsigned int curveNum, const vpColor color);
+    void setCurveColor(const unsigned int curveNum, const vpColor &color);
     void setCurveThickness(const unsigned int curveNum, const unsigned int thickness);
     void setGridThickness (const unsigned int thickness) {
       this->gridThickness = thickness;

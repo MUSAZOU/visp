@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -421,7 +421,6 @@ vpMe::vpMe(const vpMe &me)
 }
 
 //! Copy operator.
-const
 vpMe& vpMe::operator=(const vpMe &me)
 {
   if (mask != NULL) {
@@ -448,7 +447,6 @@ vpMe& vpMe::operator=(const vpMe &me)
 
 #ifdef VISP_HAVE_CPP11_COMPATIBILITY
 //! Move operator.
-const
 vpMe& vpMe::operator=(const vpMe &&me)
 {
   if (mask != NULL) {

@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -984,6 +984,8 @@ main(int argc, const char ** argv)
       filename =  vpIoTools::createFilePath(opath, "I_bgr2gray_flip_crop_no_continuous_sse.pgm");
       std::cout << "   Resulting image saved in: " << filename << std::endl;
       vpImageIo::write(I_bgr2gray_flip_crop_no_continuous_sse, filename);
+
+      delete [] rgb_array_crop;
 #endif
       delete [] rgb_array;
       std::cout << "Test succeed" << std::endl;

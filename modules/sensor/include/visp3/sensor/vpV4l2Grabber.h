@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -64,7 +64,10 @@
 
   \ingroup group_sensor_camera
 
-  \brief Class for the Video4Linux2 video device.
+  \brief Class that is a wrapper over the Video4Linux2 (V4L2) driver.
+
+  Thus to be enabled, this class needs the optional V4L2 3rd party. Installation instruction
+  are provided here https://visp.inria.fr/3rd_v4l2.
 
   Information about Video4Linux can be found on
   http://linuxtv.org/v4lwiki/index.php/Main_Page

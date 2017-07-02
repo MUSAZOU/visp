@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -144,14 +144,21 @@ public:
   /** @name Inherited functionalities from vpArray2D */
   //@{
 
-  Type getMinValue() const;
+  /*!
+   * Return the number of columns of the 2D array.
+   * \sa getRows(), size()
+   */
+  inline unsigned int getCols() const { return colNum; }
 
   Type getMaxValue() const;
 
-  //! Return the number of rows of the 2D array
+  Type getMinValue() const;
+
+  /*!
+   * Return the number of rows of the 2D array.
+   * \sa getCols(), size()
+   */
   inline unsigned int getRows() const { return rowNum ;}
-  //! Return the number of columns of the 2D array
-  inline unsigned int getCols() const { return colNum; }
   //! Return the number of elements of the 2D array.
   inline unsigned int size() const { return colNum*rowNum; }
   /*!
@@ -173,7 +180,7 @@ public:
       }
     }
     else {
-      const bool recopyNeeded = (ncols != this ->colNum);
+      const bool recopyNeeded = (ncols != this ->colNum && this ->colNum != 0);
       Type * copyTmp = NULL;
       unsigned int rowTmp = 0, colTmp=0;
 
@@ -250,7 +257,7 @@ public:
   */
   vpArray2D<Type> & operator=(const vpArray2D<Type> & A)
   {
-    resize(A.rowNum, A.colNum);
+    resize(A.rowNum, A.colNum, false);
     memcpy(data, A.data, rowNum*colNum*sizeof(Type));
     return *this;
   }
@@ -266,13 +273,13 @@ public:
     */
   friend std::ostream &operator<<(std::ostream &s, const vpArray2D<Type> &A)
   {
-    if (A.data == NULL)
+    if (A.data == NULL || A.size() == 0)
       return s;
     std::ios_base::fmtflags original_flags = s.flags();
 
     s.precision(10) ;
     for (unsigned int i=0;i<A.getRows();i++) {
-      for (unsigned int j=0;j<A.getCols() -1;j++){
+      for (unsigned int j=0;j<A.getCols()-1;j++){
         s << A[i][j] << "  ";
       }
       // We don't add "  " after the last row element
@@ -329,7 +336,7 @@ public:
         file.getline(line, 256);
         std::string prefix("# ");
         std::string line_(line);
-        if (line_.compare(0, 2, "# ") == 0) {
+        if (line_.compare(0, 2, prefix.c_str()) == 0) {
           // Line is a comment
           // If we are not on the first line, we should add "\n" to the end of the previous line
           if (pos)

@@ -1,7 +1,7 @@
 #############################################################################
 #
 # This file is part of the ViSP software.
-# Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+# Copyright (C) 2005 - 2017 by Inria. All rights reserved.
 #
 # This software is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -86,9 +86,13 @@ if(UNIX)
   if(VISP_HAVE_CPP11_COMPATIBILITY)
     list(APPEND VISP_CONFIG_CFLAGS ${CPP11_CXX_FLAGS})
   endif()
+  # Propagate openmp compiler option if enabled during ViSP build
+  if(VISP_HAVE_OPENMP)
+    list(APPEND VISP_CONFIG_CFLAGS ${OpenMP_CXX_FLAGS})
+  endif()
 
   # include ViSP own include dir
-  set(VISP_CONFIG_CFLAGS_SRC_TREE "-I$PREFIX/${CMAKE_INSTALL_INCLUDEDIR}")
+  set(VISP_CONFIG_CFLAGS_SRC_TREE "-I$PREFIX/${VISP_INC_INSTALL_PATH}")
 
   foreach(m ${VISP_MODULES_BUILD})
     if(EXISTS "${VISP_MODULE_${m}_LOCATION}/include")
@@ -118,7 +122,7 @@ if(UNIX)
       get_target_property(m_libpath ${m} LOCATION_Release)
     endif()
     get_filename_component(m_libname "${m_libpath}" NAME)
-    list(APPEND VISP_CONFIG_LIBS_SCRIPT "$PREFIX/${CMAKE_INSTALL_LIBDIR}/${m_libname}")
+    list(APPEND VISP_CONFIG_LIBS_SCRIPT "$PREFIX/${VISP_LIB_INSTALL_PATH}/${m_libname}")
   endforeach()
   # append deps
   foreach(m ${VISP_MODULES_BUILD})
@@ -163,8 +167,8 @@ if(UNIX)
   # Updates VISP_CONFIG_LIBS_PC (for libvisp.pc used by pkg-config)
   #----------------------------------------------------------------------
   set(exec_prefix "\${prefix}")
-  set(includedir  "\${prefix}/${CMAKE_INSTALL_INCLUDEDIR}")
-  set(libdir  "\${prefix}/${CMAKE_INSTALL_LIBDIR}")
+  set(includedir  "\${prefix}/${VISP_INC_INSTALL_PATH}")
+  set(libdir  "\${prefix}/${VISP_LIB_INSTALL_PATH}")
  
   # prepend with ViSP own include dir
   set(VISP_CONFIG_CFLAGS_PC "-I\${includedir}")
@@ -223,12 +227,12 @@ else()
   #----------------------------------------------------------------------
   set(VISP_CONFIG_SCRIPT_DEFS "")
   set(VISP_OPENMP_SUPPORT "no")
-  if(NOT ${VISP_OPENMP_FLAGS} STREQUAL "")
-    set(VISP_CONFIG_SCRIPT_DEFS "${VISP_OPENMP_FLAGS}")
+  if(VISP_HAVE_OPENMP)
+    set(VISP_CONFIG_SCRIPT_DEFS "${OpenMP_CXX_FLAGS}")
     set(VISP_OPENMP_SUPPORT "yes")
   endif()
-  if(NOT ${VISP_CPP11_FLAGS} STREQUAL "")
-    set(VISP_CONFIG_SCRIPT_DEFS "${VISP_CPP11_FLAGS}, ${VISP_CONFIG_SCRIPT_DEFS}")
+  if(VISP_HAVE_CPP11_COMPATIBILITY)
+    set(VISP_CONFIG_SCRIPT_DEFS "${CPP11_CXX_FLAGS}, ${VISP_CONFIG_SCRIPT_DEFS}")
   endif()
 
   #---------------------------------------------------------------------
@@ -238,7 +242,7 @@ else()
   # 2/ For usage with the install tree
   #    VISP_CONFIG_SCRIPT_INC = VISP_CONFIG_SCRIPT_INC_BUILD + VISP_CONFIG_SCRIPT_INC_SRC_TREE + VISP_CONFIG_SCRIPT_INC_DEPS
   #----------------------------------------------------------------------
-  set(VISP_CONFIG_SCRIPT_INC_BUILD "%PREFIX%/${CMAKE_INSTALL_INCLUDEDIR}")
+  set(VISP_CONFIG_SCRIPT_INC_BUILD "%PREFIX%/${VISP_INC_INSTALL_PATH}")
   set(VISP_CONFIG_SCRIPT_INC_SRC_TREE "")
   foreach(m ${VISP_MODULES_BUILD})
     if(EXISTS "${VISP_MODULE_${m}_LOCATION}/include")
@@ -357,7 +361,7 @@ endif()
 #----------------------------------------------------------------------
 # install rule for visp-config shell script
 install(FILES ${FILE_VISP_CONFIG_SCRIPT_INSTALL}
-  DESTINATION ${CMAKE_INSTALL_BINDIR}
+  DESTINATION ${VISP_BIN_INSTALL_PATH}
   PERMISSIONS OWNER_READ GROUP_READ WORLD_READ
   OWNER_EXECUTE GROUP_EXECUTE WORLD_EXECUTE
   OWNER_WRITE
@@ -367,7 +371,7 @@ install(FILES ${FILE_VISP_CONFIG_SCRIPT_INSTALL}
 # install rule for visp.pc pkg-config file
 if(UNIX)
   install(FILES ${FILE_VISP_CONFIG_PC_INSTALL}
-    DESTINATION ${CMAKE_INSTALL_LIBDIR}/pkgconfig
+    DESTINATION ${VISP_LIB_INSTALL_PATH}/pkgconfig
     PERMISSIONS OWNER_READ GROUP_READ WORLD_READ
     OWNER_WRITE
     COMPONENT dev

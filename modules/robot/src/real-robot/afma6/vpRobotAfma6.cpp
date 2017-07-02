@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -44,13 +44,14 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-#include <visp3/robot/vpRobotException.h>
 #include <visp3/core/vpExponentialMap.h>
 #include <visp3/core/vpDebug.h>
 #include <visp3/core/vpVelocityTwistMatrix.h>
 #include <visp3/core/vpThetaUVector.h>
-#include <visp3/robot/vpRobotAfma6.h>
+#include <visp3/core/vpIoTools.h>
 #include <visp3/core/vpRotationMatrix.h>
+#include <visp3/robot/vpRobotAfma6.h>
+#include <visp3/robot/vpRobotException.h>
 
 /* ---------------------------------------------------------------------- */
 /* --- STATIC ----------------------------------------------------------- */
@@ -2040,47 +2041,62 @@ robot.setPosition(vpRobot::ARTICULAR_FRAME, q); // Move to the joint position
 bool
 vpRobotAfma6::readPosFile(const std::string &filename, vpColVector &q)
 {
+  std::ifstream fd(filename.c_str(), std::ios::in);
 
-  FILE * fd ;
-  fd = fopen(filename.c_str(), "r") ;
-  if (fd == NULL)
+  if(! fd.is_open()) {
     return false;
+  }
 
-  char line[FILENAME_MAX];
-  char head[] = "R:";
-  bool sortie = false;
+  std::string line;
+  std::string key("R:");
+  std::string id("#AFMA6 - Position");
+  bool pos_found = false;
+  int lineNum = 0;
 
-  do {
-    // Saut des lignes commencant par #
-    if (fgets (line, FILENAME_MAX, fd) != NULL) {
-      if ( strncmp (line, "#", 1) != 0) {
-        // La ligne n'est pas un commentaire
-        if ( strncmp (line, head, sizeof(head)-1) == 0) {
-          sortie = true; 	// Position robot trouvee.
-        }
-        // 	else
-        // 	  return (false); // fin fichier sans position robot.
+  q.resize(njoint);
+
+  while(std::getline(fd, line)) {
+    lineNum ++;
+    if (lineNum == 1) {
+      if(! (line.compare(0, id.size(), id) == 0)) { // check if Afma6 position file
+        std::cout << "Error: this position file " << filename << " is not for Afma6 robot" << std::endl;
+        return false;
       }
     }
-    else {
-      fclose(fd);
-      return (false);		/* fin fichier 	*/
+    if((line.compare(0, 1, "#") == 0)) { // skip comment
+      continue;
+    }
+    if((line.compare(0, key.size(), key) == 0)) { // decode position
+      // check if there are at least njoint values in the line
+      std::vector<std::string> chain = vpIoTools::splitChain(line, std::string(" "));
+      if (chain.size() < njoint+1) // try to split with tab separator
+        chain = vpIoTools::splitChain(line, std::string("\t"));
+      if(chain.size() < njoint+1)
+        continue;
+
+      std::istringstream ss(line);
+      std::string key_;
+      ss >> key_;
+      for (unsigned int i=0; i< njoint; i++)
+        ss >> q[i];
+      pos_found = true;
+      break;
     }
   }
-  while ( sortie != true );
-
-  // Lecture des positions
-  q.resize(njoint);
-  std::string dummy;
-  std::stringstream ss(line);
-  ss >> dummy >> q[0] >> q[1] >> q[2] >> q[3] >> q[4] >> q[5];
 
   // converts rotations from degrees into radians
-  for (unsigned int i=3; i < njoint; i ++)
-    q[i] = vpMath::rad(q[i]) ;
+  q[3] = vpMath::rad(q[3]);
+  q[4] = vpMath::rad(q[4]);
+  q[5] = vpMath::rad(q[5]);
 
-  fclose(fd) ;
-  return (true);
+  fd.close();
+
+  if (!pos_found) {
+    std::cout << "Error: unable to find a position for Afma6 robot in " << filename << std::endl;
+    return false;
+  }
+
+  return true;
 }
 
 /*!
@@ -2225,41 +2241,6 @@ vpRobotAfma6::closeGripper()
 
 /*!
 
-  Get the robot displacement expressed in the camera frame since the last call
-  of this method.
-
-  \param displacement : The measured displacement in camera frame. The
-  dimension of \e displacement is 6 (tx, ty, ty, rx, ry,
-  rz). Translations are expressed in meters, rotations in radians with
-  the Euler Rxyz representation.
-
-  \sa getDisplacement(), getArticularDisplacement()
-
-*/
-void
-vpRobotAfma6::getCameraDisplacement(vpColVector &displacement)
-{
-  getDisplacement(vpRobot::CAMERA_FRAME, displacement);
-}
-/*!
-
-  Get the robot articular displacement since the last call of this method.
-
-  \param displacement : The measured articular displacement. The
-  dimension of \e displacement is 6 (the number of axis of the
-  robot). Translations are expressed in meters, rotations in radians.
-
-  \sa getDisplacement(), getCameraDisplacement()
-
-*/
-void
-vpRobotAfma6::getArticularDisplacement(vpColVector  &displacement)
-{
-  getDisplacement(vpRobot::ARTICULAR_FRAME, displacement);
-}
-
-/*!
-
   Get the robot displacement since the last call of this method.
 
   \warning This functionnality is not implemented for the moment in the
@@ -2274,8 +2255,6 @@ vpRobotAfma6::getArticularDisplacement(vpColVector  &displacement)
 
   In camera or reference frame, rotations are expressed with the
   Euler Rxyz representation.
-
-  \sa getArticularDisplacement(), getCameraDisplacement()
 
 */
 void

@@ -1,7 +1,7 @@
 #############################################################################
 #
 # This file is part of the ViSP software.
-# Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+# Copyright (C) 2005 - 2017 by Inria. All rights reserved.
 #
 # This software is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -38,7 +38,7 @@
 #   - VISP_LIBRARIES      : ViSP library to link against. Third-party libraries are
 #                           linked automatically thanks to cmake export file VISPModules.cmake
 #   - VISP_VERSION_STRING : Full ViSP version that is build, "@VISP_VERSION@"
-#   - VISP_VERSION_MAJOR  : Major version part of VISP_VERSION: "@VISP_VERSION_MAJOR@" 
+#   - VISP_VERSION_MAJOR  : Major version part of VISP_VERSION: "@VISP_VERSION_MAJOR@"
 #   - VISP_VERSION_MINOR  : Minor version part of VISP_VERSION: "@VISP_VERSION_MINOR@"
 #   - VISP_VERSION_PATCH  : Patch version part of VISP_VERSION: "@VISP_VERSION_PATCH@"
 #
@@ -176,9 +176,9 @@ set(VISP_USE_FILE "${CMAKE_CURRENT_LIST_DIR}/VISPUse.cmake")
 
 if(BUILD_TEST_COVERAGE)
   # Add build options for test coverage. Currently coverage is only supported
-  # on gcc compiler 
+  # on gcc compiler
   # Because using -fprofile-arcs with shared lib can cause problems like:
-  # hidden symbol `__bb_init_func', we add this option only for static 
+  # hidden symbol `__bb_init_func', we add this option only for static
   # library build
   set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} -ftest-coverage -fprofile-arcs")
 endif()
@@ -192,8 +192,11 @@ set(VISP_HAVE_GTK            "@VISP_HAVE_GTK@")
 set(VISP_HAVE_GDI            "@VISP_HAVE_GDI@")
 set(VISP_HAVE_D3D9           "@VISP_HAVE_D3D9@")
 set(VISP_HAVE_DISPLAY        "@VISP_HAVE_DISPLAY@")
+set(VISP_HAVE_EIGEN3         "@VISP_HAVE_EIGEN3@")
 set(VISP_HAVE_GSL            "@VISP_HAVE_GSL@")
 set(VISP_HAVE_LAPACK_C       "@VISP_HAVE_LAPACK_C@")
+set(VISP_HAVE_LAPACK         "@VISP_HAVE_LAPACK@")
+set(VISP_HAVE_LAPACK_BUILT_IN "@VISP_HAVE_LAPACK_BUILT_IN@")
 set(VISP_HAVE_LIBFREENECT    "@VISP_HAVE_LIBFREENECT@")
 set(VISP_HAVE_LIBFREENECT_AND_DEPENDENCIES "@VISP_HAVE_LIBFREENECT_AND_DEPENDENCIES@")
 set(VISP_HAVE_LIBFREENECT_OLD "@VISP_HAVE_LIBFREENECT_OLD@")
@@ -233,14 +236,35 @@ set(VISP_HAVE_FFMPEG         "@VISP_HAVE_FFMPEG@")
 set(VISP_HAVE_YARP           "@VISP_HAVE_YARP@")
 set(VISP_HAVE_PCL            "@VISP_HAVE_PCL@")
 set(VISP_HAVE_OPENMP         "@VISP_HAVE_OPENMP@")
-set(VISP_HAVE_ACCESS_TO_NAS  "@VISP_HAVE_ACCESS_TO_NAS@")
 set(VISP_HAVE_CPP11_COMPATIBILITY "@VISP_HAVE_CPP11_COMPATIBILITY@")
+
+set(VISP_COMPILER_FAIL_REGEX
+    "command line option .* is valid for .* but not for C\\+\\+" # GNU
+    "command line option .* is valid for .* but not for C" # GNU
+    "unrecognized .*option"                     # GNU
+    "unknown .*option"                          # Clang
+    "ignoring unknown option"                   # MSVC
+    "warning D9002"                             # MSVC, any lang
+    "option .*not supported"                    # Intel
+    "[Uu]nknown option"                         # HP
+    "[Ww]arning: [Oo]ption"                     # SunPro
+    "command option .* is not recognized"       # XL
+    "not supported in this configuration; ignored"       # AIX
+    "File with unknown suffix passed to linker" # PGI
+    "WARNING: unknown flag:"                    # Open64
+  )
 
 #----------------------------------------------------------------------
 # Propagate cxx11 compiler option if enabled during ViSP build
 #----------------------------------------------------------------------
 if(VISP_HAVE_CPP11_COMPATIBILITY)
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} @CPP11_CXX_FLAGS@")
+endif()
+#----------------------------------------------------------------------
+# Propagate openmp compiler option if enabled during ViSP build
+#----------------------------------------------------------------------
+if(VISP_HAVE_OPENMP)
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} @OpenMP_CXX_FLAGS@")
 endif()
 
 #----------------------------------------------------------------------
@@ -333,18 +357,102 @@ endmacro()
 
 # add specific compile flag useful to turn warning coming from 3rdparty
 macro(visp_set_source_file_compile_flag file)
-  if(DEFINED ACTIVATE_WARNING_3PARTY_MUTE)
-    if(ACTIVATE_WARNING_3PARTY_MUTE)
+#  if(DEFINED ACTIVATE_WARNING_3PARTY_MUTE)
+#    if(ACTIVATE_WARNING_3PARTY_MUTE)
       set(__cxxflags "")
       foreach(cxxflag ${ARGN})
-        vp_check_flag_support(CXX ${cxxflag} __support_flag)
+        visp_check_flag_support(CXX ${cxxflag} __support_flag)
         if(${__support_flag})
           set(__cxxflags "${__cxxflags} ${cxxflag}")
         endif()
       endforeach()
       if(NOT ${__cxxflags} STREQUAL "")
-        set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/${file} PROPERTIES COMPILE_FLAGS ${__cxxflags})
+        if(EXISTS ${CMAKE_CURRENT_LIST_DIR}/${file})
+          set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/${file} PROPERTIES COMPILE_FLAGS ${__cxxflags})
+        elseif(EXISTS ${file}) # for files that are in the build tree (like those produced by qt moc
+          set_source_files_properties(${CMAKE_CURRENT_LIST_DIR}/${file} PROPERTIES COMPILE_FLAGS ${__cxxflags})
+        endif()
       endif()
+#    endif()
+#  endif()
+endmacro()
+
+# check if a compiler flag is supported
+macro(visp_check_flag_support lang flag varname)
+  if("_${lang}_" MATCHES "_CXX_")
+    set(_lang CXX)
+  elseif("_${lang}_" MATCHES "_C_")
+    set(_lang C)
+  else()
+    set(_lang ${lang})
+  endif()
+
+  string(TOUPPER "${flag}" ${varname})
+  string(REGEX REPLACE "^(/|-)" "HAVE_${_lang}_" ${varname} "${${varname}}")
+  string(REGEX REPLACE " -|-|=| |\\." "_" ${varname} "${${varname}}")
+
+  visp_check_compiler_flag("${_lang}" "${ARGN} ${flag}" ${${varname}})
+endmacro()
+
+# test if a compiler flag is supported
+macro(visp_check_compiler_flag LANG FLAG RESULT)
+  if(NOT DEFINED ${RESULT})
+
+    if("_${LANG}_" MATCHES "_CXX_")
+      set(_fname "${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/src.cxx")
+      #if("${CMAKE_CXX_FLAGS} ${FLAG} " MATCHES "-Werror " OR "${CMAKE_CXX_FLAGS} ${FLAG} " MATCHES "-Werror=unknown-pragmas ")
+        file(WRITE "${_fname}" "int main() { return 0; }\n")
+      #else()
+      #  file(WRITE "${_fname}" "#pragma\nint main() { return 0; }\n")
+      #endif()
+    elseif("_${LANG}_" MATCHES "_C_")
+      set(_fname "${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/src.c")
+      #if("${CMAKE_C_FLAGS} ${FLAG} " MATCHES "-Werror " OR "${CMAKE_C_FLAGS} ${FLAG} " MATCHES "-Werror=unknown-pragmas ")
+        file(WRITE "${_fname}" "int main(void) { return 0; }\n")
+      #else()
+      #  file(WRITE "${_fname}" "#pragma\nint main(void) { return 0; }\n")
+      #endif()
+    elseif("_${LANG}_" MATCHES "_OBJCXX_")
+      set(_fname "${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeTmp/src.mm")
+      #if("${CMAKE_CXX_FLAGS} ${FLAG} " MATCHES "-Werror " OR "${CMAKE_CXX_FLAGS} ${FLAG} " MATCHES "-Werror=unknown-pragmas ")
+        file(WRITE "${_fname}" "int main() { return 0; }\n")
+      #else()
+      #  file(WRITE "${_fname}" "#pragma\nint main() { return 0; }\n")
+      #endif()
+    else()
+      unset(_fname)
+    endif()
+    if(_fname)
+      message(STATUS "Performing Test ${RESULT}")
+      try_compile(${RESULT}
+        "${CMAKE_BINARY_DIR}"
+        "${_fname}"
+        COMPILE_DEFINITIONS "${FLAG}"
+        OUTPUT_VARIABLE OUTPUT)
+
+      foreach(_regex ${VISP_COMPILER_FAIL_REGEX})
+        if("${OUTPUT}" MATCHES "${_regex}")
+          set(${RESULT} 0)
+          break()
+        endif()
+      endforeach()
+
+      if(${RESULT})
+        set(${RESULT} 1 CACHE INTERNAL "Test ${RESULT}")
+        message(STATUS "Performing Test ${RESULT} - Success")
+      else()
+        message(STATUS "Performing Test ${RESULT} - Failed")
+        set(${RESULT} "" CACHE INTERNAL "Test ${RESULT}")
+        file(APPEND ${CMAKE_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/CMakeError.log
+            "Compilation failed:\n"
+            "    source file: '${_fname}'\n"
+            "    check option: '${FLAG}'\n"
+            "===== BUILD LOG =====\n"
+            "${OUTPUT}\n"
+            "===== END =====\n\n")
+      endif()
+    else()
+      set(${RESULT} 0)
     endif()
   endif()
 endmacro()

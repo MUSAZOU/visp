@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -176,11 +176,12 @@ int main(int argc, const char** argv)
       return 0;
     }
 
-    std::cout << "Use device: " << opt_icamera << std::endl;
+    std::cout << "Use device   : " << opt_icamera << std::endl;
     vpFlyCaptureGrabber g;
     g.setCameraIndex(opt_icamera); // open the default camera
     g.open(I);
-    std::cout << "Image size: " << I.getWidth() << " " << I.getHeight() << std::endl;
+    std::cout << "Camera serial: " << g.getCameraSerial( g.getCameraIndex() ) << std::endl;
+    std::cout << "Image size   : " << I.getWidth() << " " << I.getHeight() << std::endl;
 
     vpDisplay *display = NULL;
     if (opt_display) {

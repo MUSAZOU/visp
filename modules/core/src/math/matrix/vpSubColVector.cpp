@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -131,7 +131,7 @@ vpSubColVector & vpSubColVector::operator=(const vpSubColVector &B)
                       "Cannot initialize (%dx1) sub-column vector from (%dx1) sub-column vector",
                       rowNum, B.getRows())) ;
   }
-  
+  pRowNum = B.pRowNum;
   for (unsigned int i=0;i<rowNum;i++)
     data[i] = B[i];
   return *this;

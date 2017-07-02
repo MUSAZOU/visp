@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -28,8 +28,8 @@
  * WARRANTY OF DESIGN, MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
  * Description:
- * Generic model based tracker. This class declares the methods to implement in 
- * order to have a model based tracker. 
+ * Generic model based tracker. This class declares the methods to implement in
+ * order to have a model based tracker.
  *
  * Authors:
  * Romain Tallonneau
@@ -54,24 +54,29 @@
 #include <vector>
 #include <limits>
 
+template <class PolygonType>
+class vpMbHiddenFaces;
+
+template <class PolygonType>
+void swap(vpMbHiddenFaces<PolygonType> &first, vpMbHiddenFaces<PolygonType> &second);
+
 /*!
   \class vpMbHiddenFaces
-  
+
   \brief Implementation of the polygons management for the model-based trackers.
 
   \ingroup group_mbt_faces
-
  */
 template<class PolygonType = vpMbtPolygon>
 class vpMbHiddenFaces
 {
-  private:
+private:
   //! List of polygons
-  std::vector<PolygonType *> Lpol ;
+  std::vector<PolygonType *> Lpol;
   //! Number of visible polygon
   unsigned int nbVisiblePolygon;
   vpMbScanLine scanlineRender;
-  
+
 #ifdef VISP_HAVE_OGRE
   vpImage<unsigned char> ogreBackground;
   bool ogreInitialised;
@@ -81,18 +86,21 @@ class vpMbHiddenFaces
   std::vector< Ogre::ManualObject* > lOgrePolygons;
   bool ogreShowConfigDialog;
 #endif
-  
+
   unsigned int  setVisiblePrivate(const vpHomogeneousMatrix &cMo, const double &angleAppears, const double &angleDisappears,
-                           bool &changed, 
+                           bool &changed,
                            bool useOgre = false, bool not_used = false,
                            const vpImage<unsigned char> &I = vpImage<unsigned char>(),
-                           const vpCameraParameters &cam = vpCameraParameters()) ;
+                           const vpCameraParameters &cam = vpCameraParameters());
 
-  public :
-                    vpMbHiddenFaces() ;
-                  ~vpMbHiddenFaces() ;
-                
-    void          addPolygon(PolygonType *p)  ;
+public :
+  vpMbHiddenFaces();
+  ~vpMbHiddenFaces();
+  vpMbHiddenFaces(const vpMbHiddenFaces &copy);
+  vpMbHiddenFaces& operator=(vpMbHiddenFaces other);
+  friend void swap<>(vpMbHiddenFaces &first, vpMbHiddenFaces &second);
+
+    void          addPolygon(PolygonType *p);
 
     bool computeVisibility(const vpHomogeneousMatrix &cMo,
                            const double &angleAppears, const double &angleDisappears,
@@ -113,8 +121,8 @@ class vpMbHiddenFaces
 
 #ifdef VISP_HAVE_OGRE
     void          displayOgre(const vpHomogeneousMatrix &cMo);
-#endif   
- 
+#endif
+
     /*!
      Get the list of polygons.
 
@@ -125,7 +133,7 @@ class vpMbHiddenFaces
 #ifdef VISP_HAVE_OGRE
   void            initOgre(const vpCameraParameters &cam = vpCameraParameters());
 #endif
-    
+
     /*!
       get the number of visible polygons.
 
@@ -162,8 +170,8 @@ class vpMbHiddenFaces
 #endif
 
     bool          isAppearing(const unsigned int i){ return Lpol[i]->isAppearing(); }
-    
-    
+
+
 #ifdef VISP_HAVE_OGRE
   /*!
     Tell whether if Ogre Context is initialised or not.
@@ -172,34 +180,34 @@ class vpMbHiddenFaces
   */
   bool            isOgreInitialised() { return ogreInitialised; }
 #endif
-  
+
     /*!
     Check if the polygon at position i in the list is visible.
-    
+
     \param i : TPosition in the list.
-    
+
     \return Return true if the polygon is visible.
   */
     bool          isVisible(const unsigned int i){ return Lpol[i]->isVisible(); }
-    
+
 #ifdef VISP_HAVE_OGRE
     bool          isVisibleOgre(const vpTranslationVector &cameraPos, const unsigned int &index);
 #endif
-    
+
     //! operator[] as modifier.
     inline PolygonType*        operator[](const unsigned int i)   { return Lpol[i];}
     //! operator[] as reader.
     inline const PolygonType*  operator[](const unsigned int i) const { return Lpol[i];}
 
     void          reset();
-    
+
 #ifdef VISP_HAVE_OGRE
     /*!
-      Set the background size (by default it is 640x480). 
+      Set the background size (by default it is 640x480).
       The background size has to match with the size of the image that you are using for the traking.
-      
+
       \warning This function has to be called before initOgre().
-      
+
       \param h : Height of the background
       \param w : Width of the background
     */
@@ -237,22 +245,22 @@ class vpMbHiddenFaces
       ogreShowConfigDialog = showConfigDialog;
     }
 #endif
-    
-    unsigned int  setVisible(const vpImage<unsigned char>& I, const vpCameraParameters &cam, const vpHomogeneousMatrix &cMo, const double &angle, bool &changed) ;
-    unsigned int  setVisible(const vpImage<unsigned char>& I, const vpCameraParameters &cam, const vpHomogeneousMatrix &cMo, const double &angleAppears, const double &angleDisappears, bool &changed) ;
-    unsigned int  setVisible(const vpHomogeneousMatrix &cMo, const double &angleAppears, const double &angleDisappears, bool &changed) ;
- 
+
+    unsigned int  setVisible(const vpImage<unsigned char>& I, const vpCameraParameters &cam, const vpHomogeneousMatrix &cMo, const double &angle, bool &changed);
+    unsigned int  setVisible(const vpImage<unsigned char>& I, const vpCameraParameters &cam, const vpHomogeneousMatrix &cMo, const double &angleAppears, const double &angleDisappears, bool &changed);
+    unsigned int  setVisible(const vpHomogeneousMatrix &cMo, const double &angleAppears, const double &angleDisappears, bool &changed);
+
 #ifdef VISP_HAVE_OGRE
-    unsigned int  setVisibleOgre(const vpImage<unsigned char>& I, const vpCameraParameters &cam, const vpHomogeneousMatrix &cMo, const double &angleAppears, const double &angleDisappears, bool &changed) ;
-    unsigned int  setVisibleOgre(const vpHomogeneousMatrix &cMo, const double &angleAppears, const double &angleDisappears, bool &changed) ;
+    unsigned int  setVisibleOgre(const vpImage<unsigned char>& I, const vpCameraParameters &cam, const vpHomogeneousMatrix &cMo, const double &angleAppears, const double &angleDisappears, bool &changed);
+    unsigned int  setVisibleOgre(const vpHomogeneousMatrix &cMo, const double &angleAppears, const double &angleDisappears, bool &changed);
 #endif
   /*!
    Get the number of polygons.
-    
+
     \return Size of the list.
   */
   inline unsigned int            size() const { return (unsigned int)Lpol.size(); }
-} ;
+};
 
 /*!
   Basic constructor.
@@ -279,9 +287,9 @@ vpMbHiddenFaces<PolygonType>::~vpMbHiddenFaces()
 {
   for(unsigned int i = 0 ; i < Lpol.size() ; i++){
     if (Lpol[i]!=NULL){
-      delete Lpol[i] ;
+      delete Lpol[i];
     }
-    Lpol[i] = NULL ;
+    Lpol[i] = NULL;
   }
   Lpol.resize(0);
 
@@ -294,9 +302,9 @@ vpMbHiddenFaces<PolygonType>::~vpMbHiddenFaces()
   // This is already done by calling "delete ogre"
 //  for(unsigned int i = 0 ; i < lOgrePolygons.size() ; i++){
 //    if (lOgrePolygons[i]!=NULL){
-//      delete lOgrePolygons[i] ;
+//      delete lOgrePolygons[i];
 //    }
-//    lOgrePolygons[i] = NULL ;
+//    lOgrePolygons[i] = NULL;
 //  }
 
   lOgrePolygons.resize(0);
@@ -304,8 +312,52 @@ vpMbHiddenFaces<PolygonType>::~vpMbHiddenFaces()
 }
 
 /*!
+  Copy constructor.
+*/
+template<class PolygonType>
+vpMbHiddenFaces<PolygonType>::vpMbHiddenFaces(const vpMbHiddenFaces<PolygonType> &copy) :
+  Lpol(), nbVisiblePolygon(copy.nbVisiblePolygon), scanlineRender(copy.scanlineRender)
+#ifdef VISP_HAVE_OGRE
+  ,  ogreBackground(copy.ogreBackground), ogreInitialised(copy.ogreInitialised), nbRayAttempts(copy.nbRayAttempts),
+  ratioVisibleRay(copy.ratioVisibleRay), ogre(NULL), lOgrePolygons(), ogreShowConfigDialog(copy.ogreShowConfigDialog)
+#endif
+{
+  //Copy the list of polygons
+  for (unsigned int i = 0; i < copy.Lpol.size(); i++) {
+    PolygonType *poly = new PolygonType(*copy.Lpol[i]);
+    Lpol.push_back(poly);
+  }
+}
+
+template<class PolygonType>
+void swap(vpMbHiddenFaces<PolygonType> &first, vpMbHiddenFaces<PolygonType> &second) {
+  using std::swap;
+  swap(first.Lpol, second.Lpol);
+  swap(first.nbVisiblePolygon, second.nbVisiblePolygon);
+  swap(first.scanlineRender, second.scanlineRender);
+#ifdef VISP_HAVE_OGRE
+  swap(first.ogreInitialised, second.ogreInitialised);
+  swap(first.nbRayAttempts, second.nbRayAttempts);
+  swap(first.ratioVisibleRay, second.ratioVisibleRay);
+  swap(first.ogreShowConfigDialog, second.ogreShowConfigDialog);
+  swap(first.ogre, second.ogre);
+  swap(first.ogreBackground, second.ogreBackground);
+#endif
+}
+
+/*!
+  Copy assignment operator.
+*/
+template<class PolygonType>
+vpMbHiddenFaces<PolygonType>& vpMbHiddenFaces<PolygonType>::operator=(vpMbHiddenFaces<PolygonType> other) {
+  swap(*this, other);
+
+  return *this;
+}
+
+/*!
   Add a polygon to the list of polygons.
-  
+
   \param p : The polygon to add.
 */
 template<class PolygonType>
@@ -337,9 +389,9 @@ vpMbHiddenFaces<PolygonType>::reset()
   nbVisiblePolygon = 0;
   for(unsigned int i = 0 ; i < Lpol.size() ; i++){
     if (Lpol[i]!=NULL){
-      delete Lpol[i] ;
+      delete Lpol[i];
     }
-    Lpol[i] = NULL ;
+    Lpol[i] = NULL;
   }
   Lpol.resize(0);
 
@@ -352,9 +404,9 @@ vpMbHiddenFaces<PolygonType>::reset()
   // This is already done by calling "delete ogre"
 //  for(unsigned int i = 0 ; i < lOgrePolygons.size() ; i++){
 //    if (lOgrePolygons[i]!=NULL){
-//      delete lOgrePolygons[i] ;
+//      delete lOgrePolygons[i];
 //    }
-//    lOgrePolygons[i] = NULL ;
+//    lOgrePolygons[i] = NULL;
 //  }
 
   lOgrePolygons.resize(0);
@@ -436,12 +488,12 @@ vpMbHiddenFaces<PolygonType>::computeScanLineQuery(const vpPoint &a, const vpPoi
                                                    std::vector<std::pair<vpPoint, vpPoint> > &lines,
                                                    const bool &displayResults)
 {
-  scanlineRender.queryLineVisibility(a,b,lines,displayResults);
+  scanlineRender.queryLineVisibility(a, b, lines, displayResults);
 }
 
 /*!
   Compute the number of visible polygons.
-  
+
   \param cMo : The pose of the camera
   \param angleAppears : Angle used to test the appearance of a face
   \param angleDisappears : Angle used to test the disappearance of a face
@@ -450,7 +502,7 @@ vpMbHiddenFaces<PolygonType>::computeScanLineQuery(const vpPoint &a, const vpPoi
   \param not_used : Unused parameter.
   \param I : Image used to test if a face is entirely projected in the image.
   \param cam : Camera parameters.
-  
+
   \return Return the number of visible polygons
 */
 template<class PolygonType>
@@ -460,12 +512,12 @@ vpMbHiddenFaces<PolygonType>::setVisiblePrivate(const vpHomogeneousMatrix &cMo,
                                                 bool &changed, bool useOgre, bool not_used,
                                                 const vpImage<unsigned char> &I,
                                                 const vpCameraParameters &cam)
-{  
+{
   nbVisiblePolygon = 0;
   changed = false;
-  
+
   vpTranslationVector cameraPos;
-  
+
   if(useOgre){
 #ifdef VISP_HAVE_OGRE
     cMo.inverse().extract(cameraPos);
@@ -474,7 +526,7 @@ vpMbHiddenFaces<PolygonType>::setVisiblePrivate(const vpHomogeneousMatrix &cMo,
     vpTRACE("ViSP doesn't have Ogre3D, simple visibility test used");
 #endif
   }
-  
+
   for (unsigned int i = 0; i < Lpol.size(); i++){
     //std::cout << "Calling poly: " << i << std::endl;
     if (computeVisibility(cMo, angleAppears, angleDisappears, changed, useOgre, not_used, I, cam, cameraPos, i))
@@ -525,7 +577,7 @@ vpMbHiddenFaces<PolygonType>::computeVisibility(const vpHomogeneousMatrix &cMo,
   if(Lpol[i]->isVisible())
   {
     bool testDisappear = false;
-    unsigned int nbCornerInsidePrev = 0;
+    //unsigned int nbCornerInsidePrev = 0;
 
     if(!testDisappear){
       if(useOgre)
@@ -551,8 +603,8 @@ vpMbHiddenFaces<PolygonType>::computeVisibility(const vpHomogeneousMatrix &cMo,
       //nbVisiblePolygon++;
       Lpol[i]->isvisible = true;
 
-      if(nbCornerInsidePrev > Lpol[i]->getNbCornerInsidePrevImage())
-        changed = true;
+      //if(nbCornerInsidePrev > Lpol[i]->getNbCornerInsidePrevImage())
+      //  changed = true;
     }
   }
   else
@@ -588,13 +640,13 @@ vpMbHiddenFaces<PolygonType>::computeVisibility(const vpHomogeneousMatrix &cMo,
 
 /*!
   Compute the number of visible polygons.
-  
+
   \param I : Image used to check if the region of interest is inside the image.
   \param cam : Camera parameters.
   \param cMo : The pose of the camera.
   \param angle : Angle used to test the appearance and disappearance of a face.
   \param changed : True if a face appeared, disappeared or too many points have been lost. False otherwise
-  
+
   \return Return the number of visible polygons
 */
 template<class PolygonType>
@@ -606,14 +658,14 @@ vpMbHiddenFaces<PolygonType>::setVisible(const vpImage<unsigned char>& I, const 
 
 /*!
   Compute the number of visible polygons.
-  
+
   \param I : Image used to check if the region of interest is inside the image.
   \param cam : Camera parameters.
   \param cMo : The pose of the camera
   \param changed : True if a face appeared, disappeared or too many points have been lost. False otherwise
   \param angleAppears : Angle used to test the appearance of a face
   \param angleDisappears : Angle used to test the disappearance of a face
-  
+
   \return Return the number of visible polygons
 */
 template<class PolygonType>
@@ -625,12 +677,12 @@ vpMbHiddenFaces<PolygonType>::setVisible(const vpImage<unsigned char>& I, const 
 
 /*!
   Compute the number of visible polygons.
-  
+
   \param cMo : The pose of the camera
   \param angleAppears : Angle used to test the appearance of a face
   \param angleDisappears : Angle used to test the disappearance of a face
   \param changed : True if a face appeared, disappeared or too many points have been lost. False otherwise
-  
+
   \return Return the number of visible polygons
 */
 template<class PolygonType>
@@ -643,18 +695,18 @@ vpMbHiddenFaces<PolygonType>::setVisible(const vpHomogeneousMatrix &cMo, const d
 #ifdef VISP_HAVE_OGRE
 /*!
   Initialise the ogre context for face visibility tests.
-  
+
   \param cam : Camera parameters.
 */
 template<class PolygonType>
-void 
+void
 vpMbHiddenFaces<PolygonType>::initOgre(const vpCameraParameters &cam)
 {
   ogreInitialised = true;
   ogre->setCameraParameters(cam);
   ogre->setShowConfigDialog(ogreShowConfigDialog);
   ogre->init(ogreBackground, false, true);
-    
+
   for(unsigned int n = 0 ; n < Lpol.size(); n++){
     Ogre::ManualObject* manual = ogre->getSceneManager()->createManualObject(Ogre::StringConverter::toString(n));
 
@@ -664,19 +716,19 @@ vpMbHiddenFaces<PolygonType>::initOgre(const vpCameraParameters &cam)
       manual->colour(1.0, 1.0, 1.0);
       manual->index(i);
     }
-    
+
     manual->index(0);
     manual->end();
 
     ogre->getSceneManager()->getRootSceneNode()->createChildSceneNode()->attachObject(manual);
-    
+
     lOgrePolygons.push_back(manual);
   }
 }
 
 /*!
   Update the display in Ogre Window.
-  
+
   \param cMo : Pose used to display.
 */
 template<class PolygonType>
@@ -697,14 +749,14 @@ vpMbHiddenFaces<PolygonType>::displayOgre(const vpHomogeneousMatrix &cMo)
 
 /*!
   Compute the number of visible polygons through Ogre3D.
-  
+
   \param I : Image used to check if the region of interest is inside the image.
   \param cam : Camera parameters.
   \param cMo : The pose of the camera
   \param changed : True if a face appeared, disappeared or too many points have been lost. False otherwise
   \param angleAppears : Angle used to test the appearance of a face
   \param angleDisappears : Angle used to test the disappearance of a face
-  
+
   \return Return the number of visible polygons
 */
 template<class PolygonType>
@@ -716,12 +768,12 @@ vpMbHiddenFaces<PolygonType>::setVisibleOgre(const vpImage<unsigned char>& I, co
 
 /*!
   Compute the number of visible polygons through Ogre3D.
-  
+
   \param cMo : The pose of the camera
   \param angleAppears : Angle used to test the appearance of a face
   \param angleDisappears : Angle used to test the disappearance of a face
   \param changed : True if a face appeared, disappeared or too many points have been lost. False otherwise
-  
+
   \return Return the number of visible polygons
 */
 template<class PolygonType>
@@ -733,14 +785,14 @@ vpMbHiddenFaces<PolygonType>::setVisibleOgre(const vpHomogeneousMatrix &cMo, con
 
 /*!
   Test the visibility of a polygon through Ogre3D via RayCasting.
-  
+
   \param cameraPos : Position of the camera in the 3D world.
   \param index : Index of the polygon.
-  
+
   \return Return true if the polygon is visible, False otherwise.
 */
 template<class PolygonType>
-bool                           
+bool
 vpMbHiddenFaces<PolygonType>::isVisibleOgre(const vpTranslationVector &cameraPos, const unsigned int &index)
 {
   Ogre::Vector3 camera((Ogre::Real)cameraPos[0],(Ogre::Real)cameraPos[1],(Ogre::Real)cameraPos[2]);
@@ -797,9 +849,9 @@ vpMbHiddenFaces<PolygonType>::isVisibleOgre(const vpTranslationVector &cameraPos
 
     if(it != result.end())
       if(it->movable->getName().find("SimpleRenderable") != Ogre::String::npos) //Test if the ogreBackground is intersect in first
-        it++;
+        ++it;
 
-    double distance, distancePrev;
+    double distance;
     // In a case of a two-axis aligned segment, ray collision is not always working.
     if(Lpol[index]->getNbPoint() == 2 &&
        (((std::fabs(Lpol[index]->getPoint(0).get_oX() - Lpol[index]->getPoint(1).get_oX()) < std::numeric_limits<double>::epsilon()) +
@@ -827,7 +879,7 @@ vpMbHiddenFaces<PolygonType>::isVisibleOgre(const vpTranslationVector &cameraPos
       if(it != result.end())
       {
         distance = it->distance;
-        distancePrev = distance;
+        double distancePrev = distance;
 
         //std::cout << "For " << Ogre::StringConverter::toString(index) << ": " << it->movable->getName() << " / " << std::flush;
 
@@ -836,7 +888,7 @@ vpMbHiddenFaces<PolygonType>::isVisibleOgre(const vpTranslationVector &cameraPos
         }
         else
         {
-          it++;
+          ++it;
           while(it != result.end())
           {
             distance = it->distance;
@@ -847,7 +899,7 @@ vpMbHiddenFaces<PolygonType>::isVisibleOgre(const vpTranslationVector &cameraPos
                 nbVisible++;
                 break;
               }
-              it++;
+              ++it;
               distancePrev = distance;
             }
             else
@@ -881,4 +933,3 @@ vpMbHiddenFaces<PolygonType>::isVisibleOgre(const vpTranslationVector &cameraPos
 #endif //VISP_HAVE_OGRE
 
 #endif // vpMbHiddenFaces
-

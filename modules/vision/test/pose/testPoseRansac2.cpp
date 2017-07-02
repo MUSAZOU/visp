@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -1848,7 +1848,7 @@ bool testRansac(const std::vector<vpPoint> &bunnyModelPoints_original, const std
   vpPose pose;
   vpPose pose_ransac, pose_ransac2;
 
-#if defined (VISP_HAVE_PTHREAD) || defined (_WIN32) || defined (VISP_HAVE_OPENMP)
+#if defined (VISP_HAVE_PTHREAD) || (defined (_WIN32) && !defined(WINRT_8_0)) || defined (VISP_HAVE_OPENMP)
 #  define TEST_PARALLEL_RANSAC
 #endif
 

@@ -47,58 +47,74 @@
   \code
 #include <stdio.h>
 #include <visp3/io/vpParseArgv.h>
+#include <visp3/core/vpMath.h>
 
-// Usage : [-int <integer value>] [-float <float value>] [-double <double value>] [-h]
+// Usage : [-bool] [-int <integer value>] [-long <long value>]
+//         [-float <float value>] [-double <double value>] [-string <string value>] [-h]
 int main(int argc, const char ** argv)
 {
   // Variables to set by command line parsing
-  int    i_val = 0;
-  float  f_val = 0;
-  double d_val = 0;
+  bool   b_val = false;
+  int    i_val = 10;
+  long   l_val = 123456;
+  float  f_val = 0.1f;
+  double d_val = M_PI;
+  char   *s_val;
 
   // Parse the command line to set the variables
   vpParseArgv::vpArgvInfo argTable[] =
-    {
-      {"-int", vpParseArgv::ARGV_INT, (char*) NULL, (char *) &i_val,
-	 "An integer value."},
-      {"-float", vpParseArgv::ARGV_FLOAT, (char*) NULL, (char *) &f_val,
-       "A float value."},
-      {"-double", vpParseArgv::ARGV_DOUBLE, (char*) NULL, (char *) &d_val,
-       "A double value."},
-      {"-h", vpParseArgv::ARGV_HELP, (char*) NULL, (char *) NULL,
-       "Print the help."},
-      {(char*) NULL, vpParseArgv::ARGV_END, (char*) NULL, (char*) NULL, (char*) NULL}
-    } ;
+  {
+    {"-bool", vpParseArgv::ARGV_CONSTANT_BOOL, 0, (char *) &b_val,
+     "Flag enabled."},
+    {"-int", vpParseArgv::ARGV_INT, (char*) NULL, (char *) &i_val,
+     "An integer value."},
+    {"-long", vpParseArgv::ARGV_LONG, (char*) NULL, (char *) &l_val,
+     "An integer value."},
+    {"-float", vpParseArgv::ARGV_FLOAT, (char*) NULL, (char *) &f_val,
+     "A float value."},
+    {"-double", vpParseArgv::ARGV_DOUBLE, (char*) NULL, (char *) &d_val,
+     "A double value."},
+    {"-string", vpParseArgv::ARGV_STRING, (char*) NULL, (char *) &s_val,
+     "A string value."},
+    {"-h", vpParseArgv::ARGV_HELP, (char*) NULL, (char *) NULL,
+     "Print the help."},
+    {(char*) NULL, vpParseArgv::ARGV_END, (char*) NULL, (char*) NULL, (char*) NULL}
+  } ;
 
   // Read the command line options
-  if(vpParseArgv::parse(&argc, argv, argTable, 
-			vpParseArgv::ARGV_NO_LEFTOVERS |
-			vpParseArgv::ARGV_NO_ABBREV | 
-			vpParseArgv::ARGV_NO_DEFAULTS)) {
+  if(vpParseArgv::parse(&argc, argv, argTable,
+                        vpParseArgv::ARGV_NO_LEFTOVERS |
+                        vpParseArgv::ARGV_NO_ABBREV |
+                        vpParseArgv::ARGV_NO_DEFAULTS)) {
     return (false);
   }
- 
-  // i_val, f_val, d_val may have new values
+
+  // b_val, i_val, l_val, f_val, d_val, s_val may have new values
 }
   \endcode
 
-  The code below shows an other way to parse command line arguments using 
+  The code below shows an other way to parse command line arguments using
   vpParseArgv class. Here command line options are only one character long.
   \code
 #include <stdio.h>
 #include <stdlib.h>
 #include <visp3/io/vpParseArgv.h>
+#include <visp3/core/vpMath.h>
 
 // List of allowed command line options
-#define GETOPTARGS	"d:f:i:h" // double point mean here that the preceding option request an argument
+#define GETOPTARGS	"bi:l:f:d:h" // double point mean here that the preceding option request an argument
 
-// Usage : [-i <integer value>] [-f <float value>] [-d <double value>] [-h]
+// Usage : [-b] [-i <integer value>] [-l <long value>]
+//         [-f <float value>] [-d <double value>] [-s <string value>] [-h]
 int main(int argc, const char ** argv)
 {
   // Variables to set by command line parsing
-  int    i_val = 0;
-  float  f_val = 0;
-  double d_val = 0;
+  bool   b_val = false;
+  int    i_val = 10;
+  long   l_val = 123456;
+  float  f_val = 0.1f;
+  double d_val = M_PI;
+  char   *s_val;
 
   // Parse the command line to set the variables
   const char *optarg;
@@ -106,9 +122,12 @@ int main(int argc, const char ** argv)
   while ((c = vpParseArgv::parse(argc, argv, GETOPTARGS, &optarg)) > 1) {
 
     switch (c) {
-    case 'd': d_val = atof(optarg); break;
-    case 'f': f_val = (float) atof(optarg); break;
+    case 'b': b_val = true; break;
     case 'i': i_val = atoi(optarg); break;
+    case 'l': l_val = atol(optarg); break;
+    case 'f': f_val = (float) atof(optarg); break;
+    case 'd': d_val = atof(optarg); break;
+    case 's': sprintf(s_val, "%s", optarg); break;
     case 'h': printf("Usage: ...\n"); return true; break;
 
     default:
@@ -120,8 +139,8 @@ int main(int argc, const char ** argv)
     printf("Usage: ...\n");
     return false;
   }
- 
-  // i_val, f_val, d_val may have new values
+
+  // b_val, i_val, l_val, f_val, d_val, s_val may have new values
 }
   \endcode
 
@@ -136,20 +155,22 @@ class VISP_EXPORT vpParseArgv
     Legal values for the type field of a vpArgvInfo.
   */
   typedef enum  {
-    ARGV_CONSTANT,/*!< Stand alone argument. */
-    ARGV_INT,     /*!< Argument is associated to an int. */
-    ARGV_LONG,    /*!< Argument is associated to a long. */
-    ARGV_STRING,  /*!< Argument is associated to a char * string. */
+    ARGV_CONSTANT,     /*!< Stand alone argument. Same as ARGV_CONSTANT_INT. */
+    ARGV_CONSTANT_INT, /*!< Stand alone argument associated to an int var that is set to 1. */
+    ARGV_CONSTANT_BOOL,/*!< Stand alone argument associated to a bool var that is set to true. */
+    ARGV_INT,          /*!< Argument is associated to an int. */
+    ARGV_LONG,         /*!< Argument is associated to a long. */
+    ARGV_STRING,       /*!< Argument is associated to a char * string. */
     ARGV_REST,
-    ARGV_FLOAT,   /*!< Argument is associated to a float. */
-    ARGV_DOUBLE,  /*!< Argument is associated to a double. */
+    ARGV_FLOAT,        /*!< Argument is associated to a float. */
+    ARGV_DOUBLE,       /*!< Argument is associated to a double. */
     ARGV_FUNC,
     ARGV_GENFUNC,
-    ARGV_HELP,    /*!< Argument is for help displaying. */
-    ARGV_END      /*!< End of the argument list. */
+    ARGV_HELP,         /*!< Argument is for help displaying. */
+    ARGV_END           /*!< End of the argument list. */
   } vpArgvType;
 
-  /*! 
+  /*!
     Flag bits.
    */
   typedef enum {
@@ -167,12 +188,12 @@ class VISP_EXPORT vpParseArgv
  */
   typedef struct {
     const char *key;    /*!< The key string that flags the option in the
-			 * argv array. */
+       * argv array. */
     vpArgvType type;	/*!< Indicates option type;  see below. */
     const char *src;		/*!< Value to be used in setting dst;  usage
-			 * depends on type. */
+       * depends on type. */
     const char *dst;		/*!< Address of value to be modified;  usage
-			 * depends on type. */
+       * depends on type. */
     const char *help;		/*!< Documentation message describing this option. */
   } vpArgvInfo;
 #endif /* DOXYGEN_SHOULD_SKIP_THIS */
@@ -180,7 +201,7 @@ class VISP_EXPORT vpParseArgv
 public:
   static vpArgvInfo defaultTable[2];
   static bool parse(int *argcPtr, const char **argv,
-		    vpArgvInfo *argTable, int flags);
+        vpArgvInfo *argTable, int flags);
   static int  parse(int argc, const char** argv, const char* validOpts, const char** param);
 
  private:

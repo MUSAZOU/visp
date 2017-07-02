@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -66,7 +66,7 @@ class VISP_EXPORT vpMbtDistanceCircle
     vpMe *me;
     //double alpha;
     double wmean;
-    vpFeatureEllipse featureEllipse ;
+    vpFeatureEllipse featureEllipse;
     //! Polygon describing the circle bbox
 //    vpMbtPolygon poly;
     bool isTrackedCircle;
@@ -121,15 +121,15 @@ class VISP_EXPORT vpMbtDistanceCircle
 //#endif
 
   public:
-    vpMbtDistanceCircle() ;
-    ~vpMbtDistanceCircle() ;
+    vpMbtDistanceCircle();
+    ~vpMbtDistanceCircle();
 
     void buildFrom(const vpPoint &_p1, const vpPoint &_p2, const vpPoint &_p3, const double r);
     
     void computeInteractionMatrixError(const vpHomogeneousMatrix &cMo);
     
-    void display(const vpImage<unsigned char> &I, const vpHomogeneousMatrix &cMo, const vpCameraParameters &cam, const vpColor col, const unsigned int thickness = 1, const bool displayFullModel = false);
-    void display(const vpImage<vpRGBa> &I, const vpHomogeneousMatrix &cMo, const vpCameraParameters &cam, const vpColor col, const unsigned int thickness = 1, const bool displayFullModel = false);
+    void display(const vpImage<unsigned char> &I, const vpHomogeneousMatrix &cMo, const vpCameraParameters &cam, const vpColor &col, const unsigned int thickness = 1, const bool displayFullModel = false);
+    void display(const vpImage<vpRGBa> &I, const vpHomogeneousMatrix &cMo, const vpCameraParameters &cam, const vpColor &col, const unsigned int thickness = 1, const bool displayFullModel = false);
     void displayMovingEdges(const vpImage<unsigned char> &I);
     
     /*!
@@ -244,7 +244,7 @@ class VISP_EXPORT vpMbtDistanceCircle
 
   private:
     void project(const vpHomogeneousMatrix &cMo);
-} ;
+};
 
 #endif
 

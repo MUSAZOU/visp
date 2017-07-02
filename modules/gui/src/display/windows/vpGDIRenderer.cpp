@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -47,7 +47,7 @@
   Constructor.
 */
 vpGDIRenderer::vpGDIRenderer()
-  : m_bmp(NULL), m_bmp_width(0), m_bmp_height(0)
+  : m_bmp(NULL), m_bmp_width(0), m_bmp_height(0), timelost(0)
 {
   //if the screen depth is not 32bpp, throw an exception
   int bpp = GetDeviceCaps(GetDC(NULL), BITSPIXEL);
@@ -259,10 +259,10 @@ void vpGDIRenderer::convert(const vpImage<vpRGBa> &I, HBITMAP& hBmp)
 */
 void vpGDIRenderer::convertROI(const vpImage<vpRGBa> &I, const vpImagePoint &iP, const unsigned int width, const unsigned int height)
 {
-  int i_min = std::max((int)ceil(iP.get_i() / m_rscale), 0);
-  int j_min = std::max((int)ceil(iP.get_j() / m_rscale), 0);
-  int i_max = std::min((int)ceil((iP.get_i() + height) / m_rscale), (int)m_rheight);
-  int j_max = std::min((int)ceil((iP.get_j() + width) / m_rscale), (int)m_rwidth);
+  int i_min = (std::max)((int)ceil(iP.get_i() / m_rscale), 0);
+  int j_min = (std::max)((int)ceil(iP.get_j() / m_rscale), 0);
+  int i_max = (std::min)((int)ceil((iP.get_i() + height) / m_rscale), (int)m_rheight);
+  int j_max = (std::min)((int)ceil((iP.get_j() + width) / m_rscale), (int)m_rwidth);
 
   int h = i_max - i_min;
   int w = j_max - j_min;
@@ -364,10 +364,10 @@ void vpGDIRenderer::convert(const vpImage<unsigned char> &I, HBITMAP& hBmp)
 */
 void vpGDIRenderer::convertROI(const vpImage<unsigned char> &I, const vpImagePoint &iP, const unsigned int width, const unsigned int height)
 {
-  int i_min = std::max((int)ceil(iP.get_i() / m_rscale), 0);
-  int j_min = std::max((int)ceil(iP.get_j() / m_rscale), 0);
-  int i_max = std::min((int)ceil((iP.get_i() + height) / m_rscale), (int)m_rheight);
-  int j_max = std::min((int)ceil((iP.get_j() + width) / m_rscale), (int)m_rwidth);
+  int i_min = (std::max)((int)ceil(iP.get_i() / m_rscale), 0);
+  int j_min = (std::max)((int)ceil(iP.get_j() / m_rscale), 0);
+  int i_max = (std::min)((int)ceil((iP.get_i() + height) / m_rscale), (int)m_rheight);
+  int j_max = (std::min)((int)ceil((iP.get_j() + width) / m_rscale), (int)m_rwidth);
 
   int h = i_max - i_min;
   int w = j_max - j_min;
@@ -492,7 +492,7 @@ bool vpGDIRenderer::updateBitmapROI(unsigned char * imBuffer, int i_min, int j_m
 /*!
   Sets a pixel to color at position (j,i).
 
-  \param ip : The pixel coordinates.
+  \param iP : The pixel coordinates.
   \param color : the color of the point.
 */
 void vpGDIRenderer::setPixel(const vpImagePoint &iP,

@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -62,6 +62,9 @@ vp1394CMUGrabber::vp1394CMUGrabber()
   index = 0;   // If a camera was not selected the first one (index = 0) will be used
   _format = _mode = _fps = -1;
   _modeauto=true;
+  _gain = 0;
+  _shutter = 0;
+  _color = vp1394CMUGrabber::UNKNOWN;
 }
 
 /*!

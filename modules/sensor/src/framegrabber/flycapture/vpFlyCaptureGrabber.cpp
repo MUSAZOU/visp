@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -459,12 +459,12 @@ void vpFlyCaptureGrabber::setProperty(const FlyCapture2::PropertyType &prop_type
     prop.absControl = propInfo.absValSupported;
     switch(prop_value) {
     case ABS_VALUE: {
-      float value_ = std::max<float>(std::min<float>(value, propInfo.absMax), propInfo.absMin);
+      float value_ = (std::max)((std::min)((float)value, (float)propInfo.absMax), (float)propInfo.absMin);
       prop.absValue = value_;
       break;
     }
     case VALUE_A: {
-      unsigned int value_ = std::max<unsigned int>(std::min<unsigned int>((unsigned int)value, propInfo.max), propInfo.min);
+      unsigned int value_ = (std::max)((std::min)((unsigned int)value, (unsigned int)propInfo.max), (unsigned int)propInfo.min);
       prop.valueA = value_;
       break;
     }
@@ -983,7 +983,7 @@ void vpFlyCaptureGrabber::startCapture()
     if (error != FlyCapture2::PGRERROR_OK) {
       error.PrintErrorTrace();
       throw (vpException(vpException::fatalError,
-                         "Cannot start capture for camera with guid 0x%lx", m_guid));
+                         "Cannot start capture for camera with serial %u", getCameraSerial(m_index)));
     }
     m_capture = true;
   }
@@ -1044,7 +1044,7 @@ void vpFlyCaptureGrabber::connect()
     if (error != FlyCapture2::PGRERROR_OK) {
       error.PrintErrorTrace();
       throw (vpException(vpException::fatalError,
-                         "Cannot connect to camera with guid 0x%lx", m_guid));
+                         "Cannot connect to camera with serial %u", getCameraSerial(m_index)));
     }
     m_connected = true;
   }
@@ -1124,8 +1124,7 @@ void vpFlyCaptureGrabber::acquire(vpImage<unsigned char> &I, FlyCapture2::TimeSt
   if (error != FlyCapture2::PGRERROR_OK) {
     error.PrintErrorTrace();
     throw (vpException(vpException::fatalError,
-                       "Cannot retrieve image for camera with guid 0x%lx",
-                       m_guid) );
+                       "Cannot retrieve image from camera with serial %u", getCameraSerial(m_index)));
   }
   timestamp = m_rawImage.GetTimeStamp();
 
@@ -1137,8 +1136,7 @@ void vpFlyCaptureGrabber::acquire(vpImage<unsigned char> &I, FlyCapture2::TimeSt
   if (error != FlyCapture2::PGRERROR_OK) {
     error.PrintErrorTrace();
     throw (vpException(vpException::fatalError,
-                       "Cannot convert image for camera with guid 0x%lx",
-                       m_guid) );
+                       "Cannot convert image from camera with serial %u", getCameraSerial(m_index)));
   }
   height = convertedImage.GetRows();
   width = convertedImage.GetCols();
@@ -1175,8 +1173,7 @@ void vpFlyCaptureGrabber::acquire(vpImage<vpRGBa> &I, FlyCapture2::TimeStamp &ti
   if (error != FlyCapture2::PGRERROR_OK) {
     error.PrintErrorTrace();
     throw (vpException(vpException::fatalError,
-                       "Cannot retrieve image for camera with guid 0x%lx",
-                       m_guid) );
+                       "Cannot retrieve image from camera with serial %u", getCameraSerial(m_index)));
   }
   timestamp = m_rawImage.GetTimeStamp();
 
@@ -1188,8 +1185,7 @@ void vpFlyCaptureGrabber::acquire(vpImage<vpRGBa> &I, FlyCapture2::TimeStamp &ti
   if (error != FlyCapture2::PGRERROR_OK) {
     error.PrintErrorTrace();
     throw (vpException(vpException::fatalError,
-                       "Cannot convert image for camera with guid 0x%lx",
-                       m_guid) );
+                       "Cannot convert image from camera with serial %u", getCameraSerial(m_index)));
   }
   height = convertedImage.GetRows();
   width = convertedImage.GetCols();

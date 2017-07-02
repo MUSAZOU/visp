@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -2540,14 +2540,12 @@ vp1394TwoGrabber::dequeue(vpImage<unsigned char> &I,
       vpImageConvert::RGBToGrey((unsigned char *) frame->image, I.bitmap, size);
       break;
 
-
     default:
       close();
       vpERROR_TRACE("Format conversion not implemented. Acquisition failed.");
       throw (vpFrameGrabberException(vpFrameGrabberException::otherError,
                                      "Format conversion not implemented. "
                                      "Acquisition failed.") );
-      break;
   };
 
   return frame;
@@ -2711,14 +2709,12 @@ vp1394TwoGrabber::dequeue(vpImage<vpRGBa> &I,
                                 (unsigned char *) I.bitmap, size);
       break;
 
-
     default:
       close();
       vpERROR_TRACE("Format conversion not implemented. Acquisition failed.");
       throw (vpFrameGrabberException(vpFrameGrabberException::otherError,
                                      "Format conversion not implemented. "
                                      "Acquisition failed.") );
-      break;
   };
 
   return frame;
@@ -2905,7 +2901,6 @@ vp1394TwoGrabber::acquire(vpImage<vpRGBa> &I,
       throw (vpFrameGrabberException(vpFrameGrabberException::otherError,
                                      "Format conversion not implemented. "
                                      "Acquisition failed.") );
-      break;
   };
 
   enqueue(frame);

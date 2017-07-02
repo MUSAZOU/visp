@@ -16,6 +16,7 @@ list(APPEND tutorial_data "${CMAKE_CURRENT_SOURCE_DIR}/teabox.xml")
 list(APPEND tutorial_data "${CMAKE_CURRENT_SOURCE_DIR}/teabox.cao")
 list(APPEND tutorial_data "${CMAKE_CURRENT_SOURCE_DIR}/teabox.wrl")
 list(APPEND tutorial_data "${CMAKE_CURRENT_SOURCE_DIR}/teabox.init")
+list(APPEND tutorial_data "${CMAKE_CURRENT_SOURCE_DIR}/teabox.ppm")
 list(APPEND tutorial_data "${CMAKE_CURRENT_SOURCE_DIR}/teabox.mpg")
 
 list(APPEND tutorial_data2 "${CMAKE_CURRENT_SOURCE_DIR}/cube.xml")
@@ -31,7 +32,7 @@ foreach(cpp ${tutorial_cpp})
   visp_add_target(${cpp})
 
   if(VISP_HAVE_OGRE)
-    visp_set_source_file_compile_flag(${cpp} -Wno-unused-parameter -Wno-unused-but-set-parameter)
+    visp_set_source_file_compile_flag(${cpp} -Wno-unused-parameter -Wno-unused-but-set-parameter  -Wno-overloaded-virtual)
   endif()
 
   if(COMMAND visp_add_dependency)

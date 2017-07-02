@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -183,13 +183,13 @@ public:
                        const vpImagePoint &iP,
 		       unsigned int height, unsigned int width);
   unsigned int buildReference(const vpImage<unsigned char> &I,
-		       const vpRect rectangle);
+           const vpRect &rectangle);
     
     // matching
   bool matchPoint(const vpImage<unsigned char> &I);
   bool matchPoint(const vpImage<unsigned char> &I,
                    const vpImagePoint &iP, const unsigned int height, const unsigned int width);
-  bool matchPoint(const vpImage<unsigned char> &I, const vpRect rectangle);
+  bool matchPoint(const vpImage<unsigned char> &I, const vpRect &rectangle);
     // database management
   void recordDetector(const std::string& objectName, const std::string& dataFile);
   void load(const std::string& dataFilename, const std::string& objName);

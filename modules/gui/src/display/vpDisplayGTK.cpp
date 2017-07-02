@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -275,7 +275,10 @@ vpDisplayGTK::init(vpImage<unsigned char> &I,
 
   if (! title.empty())
     m_title = title;
+
+  setScale(m_scaleType, I.getWidth(), I.getHeight());
   init (I.getWidth(), I.getHeight(), m_windowXPosition, m_windowYPosition, m_title) ;
+
   I.display = this ;
   m_displayHasBeenInitialized = true ;
 }
@@ -308,6 +311,8 @@ vpDisplayGTK::init(vpImage<vpRGBa> &I,
 
   if (! title.empty())
     m_title = title;
+
+  setScale(m_scaleType, I.getWidth(), I.getHeight());
   init (I.getWidth(), I.getHeight(), m_windowXPosition, m_windowYPosition, m_title) ;
 
   I.display = this ;
@@ -331,6 +336,8 @@ vpDisplayGTK::init(unsigned int w, unsigned int h,
   char **argv ;
 
   gtk_init(argc, &argv);
+
+  setScale(m_scaleType, w, h);
 
   m_width  = w/m_scale;
   m_height = h/m_scale;
@@ -585,8 +592,8 @@ void vpDisplayGTK::displayImageROI ( const vpImage<unsigned char> &I,const vpIma
     vpImageTools::crop(I, iP.get_i(), iP.get_j(), h, w, Itemp, m_scale, m_scale);
 
     /* Copie de l'image dans le pixmap fond */
-    int i_min = std::max((int)ceil(iP.get_i()/m_scale), 0);
-    int j_min = std::max((int)ceil(iP.get_j()/m_scale), 0);
+    int i_min = (std::max)((int)ceil(iP.get_i()/m_scale), 0);
+    int j_min = (std::max)((int)ceil(iP.get_j()/m_scale), 0);
 
     gdk_draw_gray_image(m_background,
                         m_gc, (gint)j_min, (gint)i_min, (gint)Itemp.getWidth(), (gint)Itemp.getHeight(),
@@ -676,8 +683,8 @@ void vpDisplayGTK::displayImageROI ( const vpImage<vpRGBa> &I,const vpImagePoint
     vpImageTools::crop(I, iP.get_i(), iP.get_j(), h, w, Itemp, m_scale, m_scale);
 
     /* Copie de l'image dans le pixmap fond */
-    int i_min = std::max((int)ceil(iP.get_i()/m_scale), 0);
-    int j_min = std::max((int)ceil(iP.get_j()/m_scale), 0);
+    int i_min = (std::max)((int)ceil(iP.get_i()/m_scale), 0);
+    int j_min = (std::max)((int)ceil(iP.get_j()/m_scale), 0);
 
     gdk_draw_rgb_32_image(m_background,
                           m_gc, (gint)j_min, (gint)i_min, (gint)Itemp.getWidth(), (gint)Itemp.getHeight(),

@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -90,12 +90,10 @@ vpXmlParserCamera::vpXmlParserCamera()
 */
 vpXmlParserCamera::vpXmlParserCamera(vpXmlParserCamera& twinParser)
   : vpXmlParser(twinParser),
-    camera(), camera_name(), image_width(0), image_height(0),
+    camera(twinParser.camera), camera_name(twinParser.camera_name), image_width(0), image_height(0),
     subsampling_width(0), subsampling_height(0), full_width(0), full_height(0)
 
 {
-  this->camera = twinParser.camera;
-  this->camera_name = twinParser.camera_name;
   this->image_width = twinParser.image_width;
   this->image_height = twinParser.image_height;
   this->subsampling_width = twinParser.subsampling_width;

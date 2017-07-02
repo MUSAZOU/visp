@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -963,8 +963,8 @@ void vpColVector::stack(const vpColVector &A, const vpColVector &B, vpColVector 
 */
 double vpColVector::mean(const vpColVector &v)
 {
-  if (v.data==NULL) {
-    throw(vpException(vpException::fatalError,
+  if (v.data == NULL || v.size() == 0) {
+    throw(vpException(vpException::dimensionError,
                       "Cannot compute column vector mean: vector empty")) ;
   }
 
@@ -985,15 +985,12 @@ double vpColVector::mean(const vpColVector &v)
 double
 vpColVector::median(const vpColVector &v)
 {
-  if (v.data==NULL) {
-    throw(vpException(vpException::fatalError,
+  if (v.data == NULL || v.size() == 0) {
+    throw(vpException(vpException::dimensionError,
                       "Cannot compute column vector median: vector empty")) ;
   }
 
-  std::vector<double> vectorOfDoubles(v.size());
-  for(unsigned int i = 0; i < v.size(); i++) {
-    vectorOfDoubles[i] = v[i];
-  }
+  std::vector<double> vectorOfDoubles(v.data, v.data + v.rowNum);
 
   return vpMath::getMedian(vectorOfDoubles);
 }
@@ -1004,8 +1001,8 @@ vpColVector::median(const vpColVector &v)
 double
 vpColVector::stdev(const vpColVector &v, const bool useBesselCorrection)
 {
-  if (v.data==NULL) {
-    throw(vpException(vpException::fatalError,
+  if (v.data == NULL || v.size() == 0) {
+    throw(vpException(vpException::dimensionError,
                       "Cannot compute column vector stdev: vector empty")) ;
   }
 
@@ -1015,14 +1012,7 @@ vpColVector::stdev(const vpColVector &v, const bool useBesselCorrection)
 
 #if VISP_HAVE_SSE2
   __m128d v_sub, v_mul, v_sum = _mm_setzero_pd();
-  //Compilation error with:
-  //clang version 3.5.0 (tags/RELEASE_350/final)
-  //Target: x86_64-unknown-linux-gnu
-  //Apple LLVM version 6.0 (clang-600.0.54) (based on LLVM 3.5svn)
-  //Target: x86_64-apple-darwin13.4.0
-  //error: use of undeclared identifier '_mm_set_pd1'; did you mean '_mm_set_ps1'?
-//  __m128d v_mean = _mm_set_pd1(mean_value);
-  __m128d v_mean = _mm_set_pd(mean_value, mean_value);
+  __m128d v_mean = _mm_set1_pd(mean_value);
 
   if(v.getRows() >= 4) {
     for(; i <= v.getRows()- 4; i+=4) {
@@ -1237,8 +1227,10 @@ void vpColVector::insert(unsigned int i, const vpColVector &v)
 {
   if (i+v.size() > this->size())
     throw(vpException(vpException::dimensionError, "Unable to insert a column vector"));
-  for (unsigned int j=0; j < v.size(); j++)
-    (*this)[i+j] = v[j];
+
+  if (data != NULL && v.data != NULL && v.rowNum > 0) {
+    memcpy(data+i, v.data, sizeof(double)*v.rowNum);
+  }
 }
 
 /*!
@@ -1306,7 +1298,7 @@ vpColVector::print(std::ostream& s, unsigned int length, char const* intro) cons
   // increase totalLength according to maxBefore
   totalLength=vpMath::maximum(totalLength,maxBefore);
   // decrease maxAfter according to totalLength
-  maxAfter=std::min(maxAfter, totalLength-maxBefore);
+  maxAfter=(std::min)(maxAfter, totalLength-maxBefore);
   if (maxAfter==1) maxAfter=0;
 
   // the following line is useful for debugging

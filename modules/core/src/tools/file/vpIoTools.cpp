@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -54,6 +54,7 @@
 #include <algorithm>
 #if !defined(_WIN32) && (defined(__unix__) || defined(__unix) || (defined(__APPLE__) && defined(__MACH__))) // UNIX
 #  include <unistd.h>
+#  include <dirent.h>
 #elif defined(_WIN32)
 #  include <windows.h>
 #  include <direct.h>
@@ -71,6 +72,17 @@ std::string vpIoTools::baseDir = "";
 std::string vpIoTools::configFile = "";
 std::vector<std::string> vpIoTools::configVars = std::vector<std::string>();
 std::vector<std::string> vpIoTools::configValues = std::vector<std::string>();
+
+/*!
+  Return build informations (OS, compiler, build flags, used 3rd parties...).
+ */
+const std::string& vpIoTools::getBuildInformation()
+{
+  static std::string build_info =
+#include "version_string.inc"
+  ;
+  return build_info;
+}
 
 /*!
   Sets the base name (prefix) of the experiment files.
@@ -129,19 +141,20 @@ vpIoTools::getUserName(std::string &username)
   }
   username = _username;
 #elif defined(_WIN32)
+#  if ( ! defined(WINRT) )
   unsigned int info_buffer_size = 1024;
   TCHAR  *infoBuf = new TCHAR [info_buffer_size];
   DWORD  bufCharCount = (DWORD) info_buffer_size;
   // Get the user name.
   if( ! GetUserName( infoBuf, &bufCharCount ) ) {
     delete [] infoBuf;
-    vpERROR_TRACE( "Cannot get the username" );
-    throw(vpIoException(vpIoException::cantGetUserName,
-			"Cannot get the username")) ;
-
+    throw(vpIoException(vpIoException::cantGetUserName, "Cannot get the username")) ;
   }
   username = infoBuf;
   delete [] infoBuf;
+#  else
+	throw(vpIoException(vpIoException::cantGetUserName, "Cannot get the username: not implemented on Universal Windows Platform"));
+#  endif
 #endif
 }
 /*!
@@ -176,6 +189,7 @@ vpIoTools::getUserName()
   }
   username = _username;
 #elif defined(_WIN32)
+#  if ( ! defined(WINRT) )
   unsigned int info_buffer_size = 1024;
   TCHAR  *infoBuf = new TCHAR [info_buffer_size];
   DWORD  bufCharCount = (DWORD) info_buffer_size;
@@ -189,6 +203,9 @@ vpIoTools::getUserName()
   }
   username = infoBuf;
   delete [] infoBuf;
+#  else
+  throw(vpIoException(vpIoException::cantGetUserName, "Cannot get the username: not implemented on Universal Windows Platform"));
+#  endif
 #endif
   return username;
 }
@@ -227,18 +244,21 @@ int main()
 std::string
 vpIoTools::getenv(const char *env)
 {
+#if defined(_WIN32) && defined(WINRT)
+  throw(vpIoException(vpIoException::cantGetenv, "Cannot get the environment variable value: not implemented on Universal Windows Platform"));
+#else
   std::string value;
   // Get the environment variable value.
   char *_value = NULL;
   _value = ::getenv(env);
   if (_value == NULL) {
-    vpERROR_TRACE( "Cannot get the environment variable value" );
     throw(vpIoException(vpIoException::cantGetenv,
 			"Cannot get the environment variable value")) ;
   }
   value = _value;
 
   return value;
+#endif
 }
 
 /*!
@@ -554,35 +574,58 @@ vpIoTools::checkFilename(const std::string &filename)
 bool
 vpIoTools::copy(const char *src, const char *dst)
 {
-  char cmd[FILENAME_MAX];
-  int ret;
   // Check if we have to consider a file or a directory
   if ( vpIoTools::checkFilename(src) ) {
     //std::cout << "copy file: " << src << " in " << dst << std::endl;
 #if !defined(_WIN32) && (defined(__unix__) || defined(__unix) || (defined(__APPLE__) && defined(__MACH__))) // UNIX
+    char cmd[FILENAME_MAX];
+    int ret;
     sprintf(cmd, "cp -p %s %s", src, dst);
-#elif defined(_WIN32)
-	std::string src_ = vpIoTools::path(src);
-	std::string dst_ = vpIoTools::path(dst);
-    sprintf(cmd, "copy %s %s", src_.c_str(), dst_.c_str());
-#endif
-    ret = system( cmd );
+    ret = system(cmd);
+    if (ret) {}; // to avoid a warning
     //std::cout << cmd << " return value: " << ret << std::endl;
     return true;
+#elif defined(_WIN32)
+#  if ( ! defined(WINRT) )
+    char cmd[FILENAME_MAX];
+    int ret;
+    std::string src_ = vpIoTools::path(src);
+    std::string dst_ = vpIoTools::path(dst);
+    sprintf(cmd, "copy %s %s", src_.c_str(), dst_.c_str());
+    ret = system(cmd);
+    if (ret) {}; // to avoid a warning
+    //std::cout << cmd << " return value: " << ret << std::endl;
+    return true;
+#  else
+    throw(vpIoException(vpException::fatalError, "Cannot copy %s in %s: not implemented on Universal Windows Platform", src, dst));
+#  endif
+#endif
   }
   else if ( vpIoTools::checkDirectory(src) ) {
     //std::cout << "copy directory: " << src << " in " << dst << std::endl;
 #if !defined(_WIN32) && (defined(__unix__) || defined(__unix) || (defined(__APPLE__) && defined(__MACH__))) // UNIX
+    char cmd[FILENAME_MAX];
+    int ret;
     sprintf(cmd, "cp -p -r %s %s", src, dst);
-#elif defined(_WIN32)
-	std::string src_ = vpIoTools::path(src);
-	std::string dst_ = vpIoTools::path(dst);
-    sprintf(cmd, "copy %s %s", src_.c_str(), dst_.c_str());
-#endif
-    ret = system( cmd );
-    if(ret) {}; // to avoid a warning
+    ret = system(cmd);
+    if (ret) {}; // to avoid a warning
     //std::cout << cmd << " return value: " << ret << std::endl;
     return true;
+#elif defined(_WIN32)
+#  if ( ! defined(WINRT) )
+    char cmd[FILENAME_MAX];
+    int ret;
+    std::string src_ = vpIoTools::path(src);
+    std::string dst_ = vpIoTools::path(dst);
+    sprintf(cmd, "copy %s %s", src_.c_str(), dst_.c_str());
+    ret = system(cmd);
+    if (ret) {}; // to avoid a warning
+    //std::cout << cmd << " return value: " << ret << std::endl;
+    return true;
+#  else
+    throw(vpIoException(vpException::fatalError, "Cannot copy %s in %s: not implemented on Universal Windows Platform", src, dst));
+#  endif
+#endif
   }
   else {
     std::cout << "Cannot copy: " << src << " in " << dst << std::endl;
@@ -630,17 +673,26 @@ vpIoTools::remove(const char *file_or_dir)
   }
   else if ( vpIoTools::checkDirectory(file_or_dir) ) {
     //std::cout << "remove directory: " << file_or_dir << std::endl;
-    char cmd[FILENAME_MAX];
 #if !defined(_WIN32) && (defined(__unix__) || defined(__unix) || (defined(__APPLE__) && defined(__MACH__))) // UNIX
-    sprintf(cmd, "rm -rf %s", file_or_dir);
+	char cmd[FILENAME_MAX];
+	sprintf(cmd, "rm -rf %s", file_or_dir);
+	int ret = system(cmd);
+	if (ret) {}; // to avoid a warning
+	//std::cout << cmd << " return value: " << ret << std::endl;
+	return true;
 #elif defined(_WIN32)
+#  if ( ! defined(WINRT) )
+	char cmd[FILENAME_MAX];  
 	std::string file_or_dir_ = vpIoTools::path(file_or_dir);
     sprintf(cmd, "rmdir /S /Q %s", file_or_dir_.c_str());
-#endif
-    int ret = system( cmd );
-    if(ret) {}; // to avoid a warning
+	int ret = system(cmd);
+	if (ret) {}; // to avoid a warning
     //std::cout << cmd << " return value: " << ret << std::endl;
-    return true;
+	return true;
+#  else
+	throw(vpIoException(vpException::fatalError, "Cannot remove %s: not implemented on Universal Windows Platform", file_or_dir));
+#  endif
+#endif
   }
   else {
     std::cout << "Cannot remove: " << file_or_dir << std::endl;
@@ -1187,7 +1239,7 @@ std::string vpIoTools::getFileExtension(const std::string& pathname, const bool 
   int sepIndex = (int)pathname.rfind(sep);
   if(!altsep.empty()) {
     int altsepIndex = (int)pathname.rfind(altsep);
-    sepIndex = (std::max)(sepIndex, altsepIndex);
+    sepIndex = ((std::max))(sepIndex, altsepIndex);
   }
 
   size_t dotIndex = pathname.rfind(extsep);
@@ -1275,27 +1327,31 @@ std::string vpIoTools::getParent(const std::string& pathname)
   Windows systems.
  */
 std::string vpIoTools::getAbsolutePathname(const std::string &pathname) {
-  std::string real_path_str = pathname;
 
 #if !defined(_WIN32) && (defined(__unix__) || defined(__unix) || (defined(__APPLE__) && defined(__MACH__))) // UNIX
+  std::string real_path_str = pathname;
   char *real_path = realpath(pathname.c_str(), NULL);
 
   if (real_path != NULL) {
     real_path_str = real_path;
     free(real_path);
   }
+  return real_path_str;
 #elif defined(_WIN32)
-#define BUFSIZE 4096
+#  if ( ! defined(WINRT) )
+  std::string real_path_str = pathname;
   DWORD retval = 0;
-  TCHAR buffer[BUFSIZE] = TEXT("");
+  TCHAR buffer[4096] = TEXT("");
 
-  retval = GetFullPathName(pathname.c_str(), BUFSIZE, buffer, 0);
+  retval = GetFullPathName(pathname.c_str(), 4096, buffer, 0);
   if (retval != 0) {
     real_path_str = buffer;
   }
-#endif
-
   return real_path_str;
+#  else
+  throw(vpIoException(vpException::fatalError, "Cannot get absolute path of %s: not implemented on Universal Windows Platform", pathname.c_str()));
+#  endif
+#endif
 }
 
 /*!
@@ -1308,7 +1364,7 @@ std::string vpIoTools::getAbsolutePathname(const std::string &pathname) {
   into "\\" characters. Under Unix systems all the "\\"
   characters are converted into "/" characters.
  */
-std::string vpIoTools::createFilePath(const std::string& parent, const std::string child)
+std::string vpIoTools::createFilePath(const std::string& parent, const std::string &child)
 {
 	if(child.size() == 0 && parent.size() == 0)
 	{
@@ -1547,13 +1603,80 @@ std::vector<std::string> vpIoTools::splitChain(const std::string & chain, const 
   size_t sepIndex = chainToSplit.find(sep);
 
   while(sepIndex != std::string::npos) {
-
-    subChain.push_back( chainToSplit.substr(startIndex, sepIndex) );
+    std::string sub = chainToSplit.substr(startIndex, sepIndex);
+    if (! sub.empty())
+      subChain.push_back( sub );
     chainToSplit = chainToSplit.substr(sepIndex+1, chain.size()-1);
 
     sepIndex = chainToSplit.find(sep);
   }
-  subChain.push_back(chainToSplit);
+  if (!chainToSplit.empty())
+    subChain.push_back(chainToSplit);
 
   return subChain;
+}
+
+
+/*!
+   List of files in directory
+   There is no difference if pathname contains terminating backslash or not
+   Unlike scandir(), does not return "." and ".."
+   \param pathname : path to directory
+   \return A vector of files' names in that directory
+ */
+std::vector<std::string> vpIoTools::getDirFiles(const std::string &pathname) {
+
+  if (!checkDirectory(pathname)) {
+    throw(vpIoException(vpException::fatalError, "Directory %s doesn't exist'", pathname.c_str()));
+  }
+  std::string dirName = path(pathname);
+
+#if !defined(_WIN32) && (defined(__unix__) || defined(__unix) || (defined(__APPLE__) && defined(__MACH__))) // UNIX
+
+  std::vector<std::string> files;
+  struct dirent **list = NULL;
+  int filesCount = scandir(dirName.c_str(), &list, NULL, NULL);
+  if (filesCount == -1) {
+    throw(vpIoException(vpException::fatalError, "Cannot read files of directory %s", dirName.c_str()));
+  }
+  for (int i = 0; i < filesCount; i++) {
+    std::string fileName = list[i]->d_name;
+    if (fileName != "." && fileName != "..") {
+      files.push_back(fileName);
+    }
+    free(list[i]);
+  }
+  free(list);
+  return files;
+
+#elif defined(_WIN32)
+#  if ( ! defined(WINRT) )
+
+  std::vector<std::string> files;
+  std::string fileMask = dirName;
+  fileMask.append("\\*");
+  WIN32_FIND_DATA FindFileData;
+  HANDLE hFind = FindFirstFile(fileMask.c_str(), &FindFileData);
+  // Directory is empty
+  if (HandleToLong(&hFind) == ERROR_FILE_NOT_FOUND) {
+    return files;
+  }
+  if (hFind == INVALID_HANDLE_VALUE) {
+    throw(vpIoException(vpException::fatalError, "Cannot read files of directory %s", dirName.c_str()));
+  }
+  do
+  {
+    std::string fileName = FindFileData.cFileName;
+    if (fileName != "." && fileName != "..") {
+      files.push_back(fileName);
+    }
+  }
+  while (FindNextFile(hFind, &FindFileData));
+  FindClose(hFind);
+  return files;
+
+#  else
+  throw(vpIoException(vpException::fatalError, "Cannot read files of directory %s: not implemented on Universal Windows Platform", dirName.c_str()));
+#  endif
+#endif
 }

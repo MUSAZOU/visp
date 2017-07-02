@@ -11,7 +11,18 @@
  This example allows to record a video from a camera.
  It only requires that ViSP is build with OpenCV.
 
- Example: ./tutorial-video-recorder --device 0 --name myvideo.mpeg
+ Example to save an mpeg video:
+
+    ./tutorial-video-recorder --device 0 --name myvideo.mpeg
+
+ Example to save a sequence of png images:
+
+    ./tutorial-video-recorder --device 0 --name image%04d.png
+
+ Example to save one imags:
+
+    ./tutorial-video-recorder --device 0 --name image.jpeg
+
  */
 int main(int argc, const char *argv[])
 {
@@ -42,6 +53,7 @@ int main(int argc, const char *argv[])
     std::ostringstream device;
     device << "/dev/video" << opt_device;
     g.setDevice(device.str());
+    g.setScale(1); // Acquire full resolution images
     g.open(I);
     g.acquire(I);
 #elif defined(VISP_HAVE_OPENCV)

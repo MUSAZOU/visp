@@ -1,7 +1,7 @@
 #############################################################################
 #
 # This file is part of the ViSP software.
-# Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+# Copyright (C) 2005 - 2017 by Inria. All rights reserved.
 #
 # This software is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -229,7 +229,7 @@ function(vp_set_ogre_media)
       if(OGRE_PLUGIN_DIR_REL)
         install(FILES
           ${VISP_HAVE_OGRE_PLUGINS_PATH}/plugins.cfg
-          DESTINATION ${CMAKE_INSTALL_LIBDIR}/visp/data/ogre-simulator
+          DESTINATION ${VISP_LIB_INSTALL_PATH}/visp/data/ogre-simulator
           PERMISSIONS OWNER_READ GROUP_READ WORLD_READ OWNER_WRITE
           COMPONENT dev
         )
@@ -237,7 +237,7 @@ function(vp_set_ogre_media)
       if(OGRE_PLUGIN_DIR_DBG)
         install(FILES
           ${VISP_HAVE_OGRE_PLUGINS_PATH}/plugins_d.cfg
-          DESTINATION ${CMAKE_INSTALL_LIBDIR}/visp/data/ogre-simulator
+          DESTINATION ${VISP_LIB_INSTALL_PATH}/visp/data/ogre-simulator
           PERMISSIONS OWNER_READ GROUP_READ WORLD_READ OWNER_WRITE
           COMPONENT dev
         )

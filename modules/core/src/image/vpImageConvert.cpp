@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -204,10 +204,11 @@ vpImageConvert::convert(const vpImage<unsigned char> &src, vpImage<double> &dest
 }
 
 /*!
-  Create depth histogram as a color image.
+  Convert the input 16-bits depth image to a color depth image. The input depth value is assigned a color value
+  proportional to its frequency.
   Tha alpha component of the resulting image is set to vpRGBa::alpha_default.
-  \param src_depth : source image corresponding to depth.
-  \param dest_rgba : destination image containing the color histogram.
+  \param src_depth : input 16-bits depth image.
+  \param dest_rgba : output color depth image.
 */
 void
 vpImageConvert::createDepthHistogram(const vpImage<uint16_t> &src_depth, vpImage<vpRGBa> &dest_rgba)
@@ -215,6 +216,7 @@ vpImageConvert::createDepthHistogram(const vpImage<uint16_t> &src_depth, vpImage
   dest_rgba.resize(src_depth.getHeight(), src_depth.getWidth());
   static uint32_t histogram[0x10000];
   memset(histogram, 0, sizeof(histogram));
+
   for(unsigned int i = 0; i < src_depth.getSize(); ++i) ++histogram[src_depth.bitmap[i]];
   for(int i = 2; i < 0x10000; ++i) histogram[i] += histogram[i-1]; // Build a cumulative histogram for the indices in [1,0xFFFF]
 
@@ -223,7 +225,7 @@ vpImageConvert::createDepthHistogram(const vpImage<uint16_t> &src_depth, vpImage
     uint16_t d = src_depth.bitmap[i];
     if(d)
     {
-      int f = histogram[d] * 255 / histogram[0xFFFF]; // 0-255 based on histogram location
+      int f = (int)(histogram[d] * 255 / histogram[0xFFFF]); // 0-255 based on histogram location
       dest_rgba.bitmap[i].R = 255 - f;
       dest_rgba.bitmap[i].G = 0;
       dest_rgba.bitmap[i].B = f;
@@ -235,6 +237,37 @@ vpImageConvert::createDepthHistogram(const vpImage<uint16_t> &src_depth, vpImage
       dest_rgba.bitmap[i].G = 5;
       dest_rgba.bitmap[i].B = 0;
       dest_rgba.bitmap[i].A = vpRGBa::alpha_default;
+    }
+  }
+}
+
+/*!
+  Convert the input 16-bits depth image to a 8-bits depth image. The input depth value is assigned a value
+  proportional to its frequency.
+  \param src_depth : input 16-bits depth image.
+  \param dest_depth : output grayscale depth image.
+*/
+void
+vpImageConvert::createDepthHistogram(const vpImage<uint16_t> &src_depth, vpImage<unsigned char> &dest_depth)
+{
+  dest_depth.resize(src_depth.getHeight(), src_depth.getWidth());
+  static uint32_t histogram2[0x10000];
+  memset(histogram2, 0, sizeof(histogram2));
+
+  for(unsigned int i = 0; i < src_depth.getSize(); ++i) ++histogram2[src_depth.bitmap[i]];
+  for(int i = 2; i < 0x10000; ++i) histogram2[i] += histogram2[i-1]; // Build a cumulative histogram for the indices in [1,0xFFFF]
+
+  for(unsigned int i = 0; i < src_depth.getSize(); ++i)
+  {
+    uint16_t d = src_depth.bitmap[i];
+    if(d)
+    {
+      int f = (int)(histogram2[d] * 255 / histogram2[0xFFFF]); // 0-255 based on histogram location
+      dest_depth.bitmap[i] = f;
+    }
+    else
+    {
+      dest_depth.bitmap[i] = 0;
     }
   }
 }
@@ -1077,7 +1110,7 @@ void vpImageConvert::convert(const yarp::sig::ImageOf< yarp::sig::PixelRgba > *s
   if(copyData)
     memcpy(dest.bitmap, src->getRawImage(),src->height()*src->width()*sizeof(yarp::sig::PixelRgba));
   else
-    dest.bitmap = (vpRGBa*)src->getRawImage();
+    dest.bitmap = static_cast<vpRGBa*>(src->getRawImage());
 }
 
 /*!
@@ -4208,11 +4241,11 @@ void vpImageConvert::RGB2HSV(const unsigned char *rgb, double *hue, double *satu
     blue = rgb[i*step + 2] / 255.0;
 
     if (red > green) {
-      max = (std::max)(red, blue);
-      min = (std::min)(green, blue);
+      max = ((std::max))(red, blue);
+      min = ((std::min))(green, blue);
     } else {
-      max = (std::max)(green, blue);
-      min = (std::min)(red, blue);
+      max = ((std::max))(green, blue);
+      min = ((std::min))(red, blue);
     }
 
     v = max;

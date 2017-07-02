@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -50,7 +50,7 @@
  */
 vpRealSense::vpRealSense()
   : m_context(), m_device(NULL), m_num_devices(0), m_serial_no(), m_intrinsics(), m_max_Z(8),
-    m_enableStreams(), m_useStreamPresets(), m_streamPresets(), m_streamParams()
+    m_enableStreams(), m_useStreamPresets(), m_streamPresets(), m_streamParams(), m_invalidDepthValue(0.0f)
 {
   initStream();
 }
@@ -130,7 +130,7 @@ void vpRealSense::open()
   std::cout << "RealSense Camera - Connecting to camera with Serial No: " << m_device->get_serial() << std::endl;
 
   //Enable only infrared2 stream if supported
-  m_enableStreams[rs::stream::infrared2] = m_device->supports(rs::capabilities::infrared2);
+  m_enableStreams[rs::stream::infrared2] = m_enableStreams[rs::stream::infrared2] ? m_device->supports(rs::capabilities::infrared2) : m_enableStreams[rs::stream::infrared2];
 
 
   if (m_device->is_streaming()) {
@@ -144,7 +144,6 @@ void vpRealSense::open()
       m_device->disable_stream(s);
     }
   }
-
 
   if (m_enableStreams[rs::stream::color]) {
     if (m_useStreamPresets[rs::stream::color]) {
@@ -190,6 +189,22 @@ void vpRealSense::open()
     auto intrin = m_device->get_stream_intrinsics(stream);
 
     m_intrinsics[stream] = intrin;
+  }
+
+  // Add synthetic stream intrinsics
+  if (m_enableStreams[rs::stream::color]) {
+    m_intrinsics[rs::stream::rectified_color] = m_device->get_stream_intrinsics(rs::stream::rectified_color);
+
+    if (m_enableStreams[rs::stream::depth]) {
+      m_intrinsics[rs::stream::color_aligned_to_depth] = m_device->get_stream_intrinsics(rs::stream::color_aligned_to_depth);
+      m_intrinsics[rs::stream::depth_aligned_to_color] = m_device->get_stream_intrinsics(rs::stream::depth_aligned_to_color);
+      m_intrinsics[rs::stream::depth_aligned_to_rectified_color] = m_device->get_stream_intrinsics(rs::stream::depth_aligned_to_rectified_color);
+    }
+  }
+
+  if (m_enableStreams[rs::stream::depth] && m_enableStreams[rs::stream::infrared2]) {
+    m_intrinsics[rs::stream::depth_aligned_to_infrared2] = m_device->get_stream_intrinsics(rs::stream::depth_aligned_to_infrared2);
+    m_intrinsics[rs::stream::infrared2_aligned_to_depth] = m_device->get_stream_intrinsics(rs::stream::infrared2_aligned_to_depth);
   }
 
   // Start device
@@ -246,10 +261,10 @@ vpCameraParameters vpRealSense::getCameraParameters(const rs::stream &stream, vp
   auto intrinsics = this->getIntrinsics(stream);
 
   vpCameraParameters cam;
-  double px = intrinsics.ppx;
-  double py = intrinsics.ppy;
-  double u0 = intrinsics.fx;
-  double v0 = intrinsics.fy;
+  double u0 = intrinsics.ppx;
+  double v0 = intrinsics.ppy;
+  double px = intrinsics.fx;
+  double py = intrinsics.fy;
   if (type == vpCameraParameters::perspectiveProjWithDistortion) {
     double kdu = intrinsics.coeffs[0];
     cam.initPersProjWithDistortion(px, py, u0, v0, -kdu, kdu);
@@ -361,7 +376,7 @@ void vpRealSense::acquire(vpImage<unsigned char> &grey, std::vector<vpColVector>
   vp_rs_get_grey_impl(m_device, m_intrinsics, grey);
 
   // Retrieve point cloud
-  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud);
+  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud, m_invalidDepthValue);
 }
 
 /*!
@@ -380,7 +395,7 @@ void vpRealSense::acquire(std::vector<vpColVector> &pointcloud)
   m_device->wait_for_frames();
 
   // Retrieve point cloud
-  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud);
+  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud, m_invalidDepthValue);
 }
 
 /*!
@@ -430,7 +445,7 @@ void vpRealSense::acquire(vpImage<vpRGBa> &color, vpImage<uint16_t> &infrared, v
   vp_rs_get_frame_data_impl(m_device, m_intrinsics, rs::stream::depth, depth);
 
   // Retrieve point cloud
-  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud);
+  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud, m_invalidDepthValue);
 }
 
 /*!
@@ -461,7 +476,7 @@ void vpRealSense::acquire(vpImage<unsigned char> &grey, vpImage<uint16_t> &infra
   vp_rs_get_frame_data_impl(m_device, m_intrinsics, rs::stream::depth, depth);
 
   // Retrieve point cloud
-  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud);
+  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud, m_invalidDepthValue);
 }
 
 /*!
@@ -484,7 +499,7 @@ void vpRealSense::acquire(vpImage<vpRGBa> &color, std::vector<vpColVector> &poin
   vp_rs_get_color_impl(m_device, m_intrinsics, color);
 
   // Retrieve point cloud
-  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud);
+  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud, m_invalidDepthValue);
 }
 
 /*!
@@ -494,9 +509,14 @@ void vpRealSense::acquire(vpImage<vpRGBa> &color, std::vector<vpColVector> &poin
   \param data_pointCloud : Point cloud vector pointer or NULL if not wanted.
   \param data_infrared : Infrared image buffer or NULL if not wanted.
   \param data_infrared2 : Infrared (for the second IR camera if available) image buffer or NULL if not wanted.
+  \param stream_color : Type of color stream (e.g. rs::stream::color, rs::stream::rectified_color, rs::stream::color_aligned_to_depth).
+  \param stream_depth : Type of depth stream (e.g. rs::stream::depth, rs::stream::depth_aligned_to_color, rs::stream::depth_aligned_to_rectified_color, rs::stream::depth_aligned_to_infrared2).
+  \param stream_infrared : Type of infrared stream (only rs::stream::infrared should be possible).
+  \param stream_infrared2 : Type of infrared2 stream (e.g. rs::stream::infrared2, rs::stream::infrared2_aligned_to_depth) if supported by the camera.
  */
 void vpRealSense::acquire(unsigned char * const data_image, unsigned char * const data_depth, std::vector<vpColVector> * const data_pointCloud,
-                          unsigned char * const data_infrared, unsigned char * const data_infrared2) {
+                          unsigned char * const data_infrared, unsigned char * const data_infrared2, const rs::stream &stream_color, const rs::stream &stream_depth,
+                          const rs::stream &stream_infrared, const rs::stream &stream_infrared2) {
   if (m_device == NULL) {
     throw vpException(vpException::fatalError, "RealSense Camera - Device not opened!");
   }
@@ -508,23 +528,23 @@ void vpRealSense::acquire(unsigned char * const data_image, unsigned char * cons
   m_device->wait_for_frames();
 
   if (data_image != NULL) {
-    vp_rs_get_native_frame_data_impl(m_device, m_intrinsics, rs::stream::color, data_image);
+    vp_rs_get_native_frame_data_impl(m_device, m_intrinsics, rs::stream::color, data_image, stream_color);
   }
 
   if (data_depth != NULL) {
-    vp_rs_get_native_frame_data_impl(m_device, m_intrinsics, rs::stream::depth, data_depth);
+    vp_rs_get_native_frame_data_impl(m_device, m_intrinsics, rs::stream::depth, data_depth, stream_depth);
 
     if (data_pointCloud != NULL) {
-      vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, *data_pointCloud);
+      vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, *data_pointCloud, m_invalidDepthValue, stream_depth);
     }
   }
 
   if (data_infrared != NULL) {
-    vp_rs_get_native_frame_data_impl(m_device, m_intrinsics, rs::stream::infrared, data_infrared);
+    vp_rs_get_native_frame_data_impl(m_device, m_intrinsics, rs::stream::infrared, data_infrared, stream_infrared);
   }
 
   if (data_infrared2 != NULL) {
-    vp_rs_get_native_frame_data_impl(m_device, m_intrinsics, rs::stream::infrared2, data_infrared2);
+    vp_rs_get_native_frame_data_impl(m_device, m_intrinsics, rs::stream::infrared2, data_infrared2, stream_infrared2);
   }
 }
 
@@ -614,7 +634,7 @@ void vpRealSense::acquire(pcl::PointCloud<pcl::PointXYZ>::Ptr &pointcloud)
   m_device->wait_for_frames();
 
   // Retrieve point cloud
-  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud);
+  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud, m_invalidDepthValue);
 }
 
 /*!
@@ -633,7 +653,7 @@ void vpRealSense::acquire(pcl::PointCloud<pcl::PointXYZRGB>::Ptr &pointcloud)
   m_device->wait_for_frames();
 
   // Retrieve point cloud
-  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud);
+  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud, m_invalidDepthValue);
 }
 
 /*!
@@ -656,7 +676,7 @@ void vpRealSense::acquire(vpImage<unsigned char> &grey, pcl::PointCloud<pcl::Poi
   vp_rs_get_grey_impl(m_device, m_intrinsics, grey);
 
   // Retrieve point cloud
-  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud);
+  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud, m_invalidDepthValue);
 }
 
 /*!
@@ -679,7 +699,7 @@ void vpRealSense::acquire(vpImage<vpRGBa> &color, pcl::PointCloud<pcl::PointXYZ>
   vp_rs_get_color_impl(m_device, m_intrinsics, color);
 
   // Retrieve point cloud
-  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud);
+  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud, m_invalidDepthValue);
 }
 
 /*!
@@ -710,7 +730,7 @@ void vpRealSense::acquire(vpImage<vpRGBa> &color, vpImage<uint16_t> &infrared, v
   vp_rs_get_frame_data_impl(m_device, m_intrinsics, rs::stream::depth, depth);
 
   // Retrieve point cloud
-  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud);
+  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud, m_invalidDepthValue);
 }
 
 /*!
@@ -741,7 +761,7 @@ void vpRealSense::acquire(vpImage<unsigned char> &grey, vpImage<uint16_t> &infra
   vp_rs_get_frame_data_impl(m_device, m_intrinsics, rs::stream::depth, depth);
 
   // Retrieve point cloud
-  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud);
+  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud, m_invalidDepthValue);
 }
 
 /*!
@@ -772,7 +792,7 @@ void vpRealSense::acquire(vpImage<vpRGBa> &color, vpImage<uint16_t> &infrared, v
   vp_rs_get_frame_data_impl(m_device, m_intrinsics, rs::stream::depth, depth);
 
   // Retrieve point cloud
-  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud);
+  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud, m_invalidDepthValue);
 }
 
 /*!
@@ -803,7 +823,7 @@ void vpRealSense::acquire(vpImage<unsigned char> &grey, vpImage<uint16_t> &infra
   vp_rs_get_frame_data_impl(m_device, m_intrinsics, rs::stream::depth, depth);
 
   // Retrieve point cloud
-  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud);
+  vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud, m_invalidDepthValue);
 }
 
 /*!
@@ -814,10 +834,15 @@ void vpRealSense::acquire(vpImage<unsigned char> &grey, vpImage<uint16_t> &infra
   \param pointcloud : Point cloud (in PCL format and without texture information) pointer or NULL if not wanted.
   \param data_infrared : Infrared image buffer or NULL if not wanted.
   \param data_infrared2 : Infrared (for the second IR camera if available) image buffer or NULL if not wanted.
+  \param stream_color : Type of color stream (e.g. rs::stream::color, rs::stream::rectified_color, rs::stream::color_aligned_to_depth).
+  \param stream_depth : Type of depth stream (e.g. rs::stream::depth, rs::stream::depth_aligned_to_color, rs::stream::depth_aligned_to_rectified_color, rs::stream::depth_aligned_to_infrared2).
+  \param stream_infrared : Type of infrared stream (only rs::stream::infrared should be possible).
+  \param stream_infrared2 : Type of infrared2 stream (e.g. rs::stream::infrared2, rs::stream::infrared2_aligned_to_depth) if supported by the camera.
  */
 void vpRealSense::acquire(unsigned char * const data_image, unsigned char * const data_depth, std::vector<vpColVector> * const data_pointCloud,
                           pcl::PointCloud<pcl::PointXYZ>::Ptr &pointcloud, unsigned char * const data_infrared,
-                          unsigned char * const data_infrared2) {
+                          unsigned char * const data_infrared2, const rs::stream &stream_color, const rs::stream &stream_depth,
+                          const rs::stream &stream_infrared, const rs::stream &stream_infrared2) {
   if (m_device == NULL) {
     throw vpException(vpException::fatalError, "RealSense Camera - Device not opened!");
   }
@@ -829,27 +854,27 @@ void vpRealSense::acquire(unsigned char * const data_image, unsigned char * cons
   m_device->wait_for_frames();
 
   if (data_image != NULL) {
-    vp_rs_get_native_frame_data_impl(m_device, m_intrinsics, rs::stream::color, data_image);
+    vp_rs_get_native_frame_data_impl(m_device, m_intrinsics, rs::stream::color, data_image, stream_color);
   }
 
   if (data_depth != NULL) {
-    vp_rs_get_native_frame_data_impl(m_device, m_intrinsics, rs::stream::depth, data_depth);
+    vp_rs_get_native_frame_data_impl(m_device, m_intrinsics, rs::stream::depth, data_depth, stream_depth);
   }
 
   if (data_pointCloud != NULL) {
-    vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, *data_pointCloud);
+    vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, *data_pointCloud, m_invalidDepthValue, stream_depth);
   }
 
   if (pointcloud != NULL) {
-    vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud);
+    vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud, m_invalidDepthValue, stream_depth);
   }
 
   if (data_infrared != NULL) {
-    vp_rs_get_native_frame_data_impl(m_device, m_intrinsics, rs::stream::infrared, data_infrared);
+    vp_rs_get_native_frame_data_impl(m_device, m_intrinsics, rs::stream::infrared, data_infrared, stream_infrared);
   }
 
   if (data_infrared2 != NULL) {
-    vp_rs_get_native_frame_data_impl(m_device, m_intrinsics, rs::stream::infrared2, data_infrared2);
+    vp_rs_get_native_frame_data_impl(m_device, m_intrinsics, rs::stream::infrared2, data_infrared2, stream_infrared2);
   }
 }
 
@@ -861,10 +886,15 @@ void vpRealSense::acquire(unsigned char * const data_image, unsigned char * cons
   \param pointcloud : Point cloud (in PCL format and with texture information) pointer or NULL if not wanted.
   \param data_infrared : Infrared image buffer or NULL if not wanted.
   \param data_infrared2 : Infrared (for the second IR camera if available) image buffer or NULL if not wanted.
+  \param stream_color : Type of color stream (e.g. rs::stream::color, rs::stream::rectified_color, rs::stream::color_aligned_to_depth).
+  \param stream_depth : Type of depth stream (e.g. rs::stream::depth, rs::stream::depth_aligned_to_color, rs::stream::depth_aligned_to_rectified_color, rs::stream::depth_aligned_to_infrared2).
+  \param stream_infrared : Type of infrared stream (only rs::stream::infrared should be possible).
+  \param stream_infrared2 : Type of infrared2 stream (e.g. rs::stream::infrared2, rs::stream::infrared2_aligned_to_depth) if supported by the camera.
  */
 void vpRealSense::acquire(unsigned char * const data_image, unsigned char * const data_depth, std::vector<vpColVector> * const data_pointCloud,
                           pcl::PointCloud<pcl::PointXYZRGB>::Ptr &pointcloud, unsigned char * const data_infrared,
-                          unsigned char * const data_infrared2) {
+                          unsigned char * const data_infrared2, const rs::stream &stream_color, const rs::stream &stream_depth,
+                          const rs::stream &stream_infrared, const rs::stream &stream_infrared2) {
   if (m_device == NULL) {
     throw vpException(vpException::fatalError, "RealSense Camera - Device not opened!");
   }
@@ -876,27 +906,27 @@ void vpRealSense::acquire(unsigned char * const data_image, unsigned char * cons
   m_device->wait_for_frames();
 
   if (data_image != NULL) {
-    vp_rs_get_native_frame_data_impl(m_device, m_intrinsics, rs::stream::color, data_image);
+    vp_rs_get_native_frame_data_impl(m_device, m_intrinsics, rs::stream::color, data_image, stream_color);
   }
 
   if (data_depth != NULL) {
-    vp_rs_get_native_frame_data_impl(m_device, m_intrinsics, rs::stream::depth, data_depth);
+    vp_rs_get_native_frame_data_impl(m_device, m_intrinsics, rs::stream::depth, data_depth, stream_depth);
   }
 
   if (data_pointCloud != NULL) {
-    vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, *data_pointCloud);
+    vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, *data_pointCloud, m_invalidDepthValue, stream_depth);
   }
 
   if (pointcloud != NULL) {
-    vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud);
+    vp_rs_get_pointcloud_impl(m_device, m_intrinsics, m_max_Z, pointcloud, m_invalidDepthValue, stream_color, stream_depth);
   }
 
   if (data_infrared != NULL) {
-    vp_rs_get_native_frame_data_impl(m_device, m_intrinsics, rs::stream::infrared, data_infrared);
+    vp_rs_get_native_frame_data_impl(m_device, m_intrinsics, rs::stream::infrared, data_infrared, stream_infrared);
   }
 
   if (data_infrared2 != NULL) {
-    vp_rs_get_native_frame_data_impl(m_device, m_intrinsics, rs::stream::infrared2, data_infrared2);
+    vp_rs_get_native_frame_data_impl(m_device, m_intrinsics, rs::stream::infrared2, data_infrared2, stream_infrared2);
   }
 }
 #endif

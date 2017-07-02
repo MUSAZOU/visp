@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -358,12 +358,12 @@ vpDisplayOpenCV::init(vpImage<unsigned char> &I,
                       int y,
                       const std::string &title)
 {
-
   if ((I.getHeight() == 0) || (I.getWidth()==0))
   {
     throw(vpDisplayException(vpDisplayException::notInitializedError,
                              "Image not initialized")) ;
   }
+  setScale(m_scaleType, I.getWidth(), I.getHeight());
   init (I.getWidth(), I.getHeight(), x, y, title) ;
   I.display = this ;
   m_displayHasBeenInitialized = true ;
@@ -390,6 +390,7 @@ vpDisplayOpenCV::init(vpImage<vpRGBa> &I,
                              "Image not initialized")) ;
   }
 
+  setScale(m_scaleType, I.getWidth(), I.getHeight());
   init (I.getWidth(), I.getHeight(), x, y, title) ;
   I.display = this ;
   m_displayHasBeenInitialized = true ;
@@ -410,6 +411,8 @@ vpDisplayOpenCV::init(unsigned int w, unsigned int h,
                       int x, int y,
                       const std::string &title)
 {
+  setScale(m_scaleType, w, h);
+
   this->m_width  = w / m_scale;
   this->m_height = h / m_scale;
 
@@ -734,8 +737,8 @@ void vpDisplayOpenCV::displayImageROI ( const vpImage<unsigned char> &I,const vp
     if (m_scale == 1) {
       unsigned int i_min = (unsigned int)iP.get_i();
       unsigned int j_min = (unsigned int)iP.get_j();
-      unsigned int i_max = std::min(i_min + h, m_height);
-      unsigned int j_max = std::min(j_min + w, m_width);
+      unsigned int i_max = (std::min)(i_min + h, m_height);
+      unsigned int j_max = (std::min)(j_min + w, m_width);
       for (unsigned int i=i_min; i<i_max; i++) {
         unsigned char *dst_24 = ( unsigned char* ) m_background->imageData + (int)(i*m_background->widthStep + j_min*3);
         for (unsigned int j=j_min; j<j_max; j++) {
@@ -747,10 +750,10 @@ void vpDisplayOpenCV::displayImageROI ( const vpImage<unsigned char> &I,const vp
       }
     }
     else {
-      int i_min = std::max((int)ceil(iP.get_i()/m_scale), 0);
-      int j_min = std::max((int)ceil(iP.get_j()/m_scale), 0);
-      int i_max = std::min((int)ceil((iP.get_i() + h)/m_scale), (int)m_height);
-      int j_max = std::min((int)ceil((iP.get_j() + w)/m_scale), (int)m_width);
+      int i_min = (std::max)((int)ceil(iP.get_i()/m_scale), 0);
+      int j_min = (std::max)((int)ceil(iP.get_j()/m_scale), 0);
+      int i_max = (std::min)((int)ceil((iP.get_i() + h)/m_scale), (int)m_height);
+      int j_max = (std::min)((int)ceil((iP.get_j() + w)/m_scale), (int)m_width);
       for (int i=i_min; i<i_max; i++) {
         unsigned char *dst_24 = ( unsigned char* ) m_background->imageData + (int)(i*m_background->widthStep + j_min*3);
         for (int j=j_min; j<j_max; j++) {
@@ -774,8 +777,8 @@ void vpDisplayOpenCV::displayImageROI ( const vpImage<unsigned char> &I,const vp
     if (m_scale == 1) {
       unsigned int i_min = (unsigned int)iP.get_i();
       unsigned int j_min = (unsigned int)iP.get_j();
-      unsigned int i_max = std::min(i_min + h, m_height);
-      unsigned int j_max = std::min(j_min + w, m_width);
+      unsigned int i_max = (std::min)(i_min + h, m_height);
+      unsigned int j_max = (std::min)(j_min + w, m_width);
       for (unsigned int i=i_min; i<i_max; i++) {
         unsigned char *dst_24 = ( unsigned char* ) m_background.data + (int)(i*3*m_width + j_min*3);
         for (unsigned int j=j_min; j<j_max; j++) {
@@ -787,10 +790,10 @@ void vpDisplayOpenCV::displayImageROI ( const vpImage<unsigned char> &I,const vp
       }
     }
     else {
-      int i_min = std::max((int)ceil(iP.get_i()/m_scale), 0);
-      int j_min = std::max((int)ceil(iP.get_j()/m_scale), 0);
-      int i_max = std::min((int)ceil((iP.get_i() + h)/m_scale), (int)m_height);
-      int j_max = std::min((int)ceil((iP.get_j() + w)/m_scale), (int)m_width);
+      int i_min = (std::max)((int)ceil(iP.get_i()/m_scale), 0);
+      int j_min = (std::max)((int)ceil(iP.get_j()/m_scale), 0);
+      int i_max = (std::min)((int)ceil((iP.get_i() + h)/m_scale), (int)m_height);
+      int j_max = (std::min)((int)ceil((iP.get_j() + w)/m_scale), (int)m_width);
       for (int i=i_min; i<i_max; i++) {
         unsigned char *dst_24 = ( unsigned char* ) m_background.data + (int)(i*3*m_width + j_min*3);
         for (int j=j_min; j<j_max; j++) {
@@ -942,8 +945,8 @@ void vpDisplayOpenCV::displayImageROI ( const vpImage<vpRGBa> &I,const vpImagePo
     if (m_scale == 1) {
       unsigned int i_min = (unsigned int)iP.get_i();
       unsigned int j_min = (unsigned int)iP.get_j();
-      unsigned int i_max = std::min(i_min + h, m_height);
-      unsigned int j_max = std::min(j_min + w, m_width);
+      unsigned int i_max = (std::min)(i_min + h, m_height);
+      unsigned int j_max = (std::min)(j_min + w, m_width);
       for (unsigned int i=i_min; i<i_max; i++) {
         unsigned char *dst_24 = ( unsigned char* ) m_background->imageData + (int)(i*m_background->widthStep + j_min*3);
         for (unsigned int j=j_min; j<j_max; j++) {
@@ -955,10 +958,10 @@ void vpDisplayOpenCV::displayImageROI ( const vpImage<vpRGBa> &I,const vpImagePo
       }
     }
     else {
-      int i_min = std::max((int)ceil(iP.get_i()/m_scale), 0);
-      int j_min = std::max((int)ceil(iP.get_j()/m_scale), 0);
-      int i_max = std::min((int)ceil((iP.get_i() + h)/m_scale), (int)m_height);
-      int j_max = std::min((int)ceil((iP.get_j() + w)/m_scale), (int)m_width);
+      int i_min = (std::max)((int)ceil(iP.get_i()/m_scale), 0);
+      int j_min = (std::max)((int)ceil(iP.get_j()/m_scale), 0);
+      int i_max = (std::min)((int)ceil((iP.get_i() + h)/m_scale), (int)m_height);
+      int j_max = (std::min)((int)ceil((iP.get_j() + w)/m_scale), (int)m_width);
       for (int i=i_min; i<i_max; i++) {
         unsigned char *dst_24 = ( unsigned char* ) m_background->imageData + (int)(i*m_background->widthStep + j_min*3);
         for (int j=j_min; j<j_max; j++) {
@@ -981,8 +984,8 @@ void vpDisplayOpenCV::displayImageROI ( const vpImage<vpRGBa> &I,const vpImagePo
     if (m_scale == 1) {
       unsigned int i_min = (unsigned int)iP.get_i();
       unsigned int j_min = (unsigned int)iP.get_j();
-      unsigned int i_max = std::min(i_min + h, m_height);
-      unsigned int j_max = std::min(j_min + w, m_width);
+      unsigned int i_max = (std::min)(i_min + h, m_height);
+      unsigned int j_max = (std::min)(j_min + w, m_width);
       for (unsigned int i=i_min; i<i_max; i++) {
         unsigned char *dst_24 = ( unsigned char* ) m_background.data + (int)(i*3*m_width + j_min*3);
         for (unsigned int j=j_min; j<j_max; j++) {
@@ -994,10 +997,10 @@ void vpDisplayOpenCV::displayImageROI ( const vpImage<vpRGBa> &I,const vpImagePo
       }
     }
     else {
-      int i_min = std::max((int)ceil(iP.get_i()/m_scale), 0);
-      int j_min = std::max((int)ceil(iP.get_j()/m_scale), 0);
-      int i_max = std::min((int)ceil((iP.get_i() + h)/m_scale), (int)m_height);
-      int j_max = std::min((int)ceil((iP.get_j() + w)/m_scale), (int)m_width);
+      int i_min = (std::max)((int)ceil(iP.get_i()/m_scale), 0);
+      int j_min = (std::max)((int)ceil(iP.get_j()/m_scale), 0);
+      int i_max = (std::min)((int)ceil((iP.get_i() + h)/m_scale), (int)m_height);
+      int j_max = (std::min)((int)ceil((iP.get_j() + w)/m_scale), (int)m_width);
       for (int i=i_min; i<i_max; i++) {
         unsigned char *dst_24 = ( unsigned char* ) m_background.data + (int)(i*3*m_width + j_min*3);
         for (int j=j_min; j<j_max; j++) {
@@ -2125,7 +2128,7 @@ void vpDisplayOpenCV::getImage(vpImage<vpRGBa> &I)
 
 void vpDisplayOpenCV::on_mouse( int event, int x, int y, int /*flags*/, void* display )
 {
-  vpDisplayOpenCV* disp = (vpDisplayOpenCV*)display;
+  vpDisplayOpenCV* disp = static_cast<vpDisplayOpenCV*>(display);
   switch ( event )
   {
 #if (VISP_HAVE_OPENCV_VERSION < 0x020408)
@@ -2409,8 +2412,12 @@ void vpDisplayOpenCV::getScreenSize ( unsigned int &w, unsigned int &h )
   }
   pclose(fpipe);
 #elif defined(_WIN32)
+#  if !defined(WINRT)
   w = GetSystemMetrics(SM_CXSCREEN);
   h = GetSystemMetrics(SM_CYSCREEN);
+#  else
+  throw(vpException(vpException::functionNotImplementedError, "The function vpDisplayOpenCV::getScreenSize() is not implemented on winrt"));
+#  endif
 #endif
 }
 

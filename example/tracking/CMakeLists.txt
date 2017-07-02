@@ -1,7 +1,7 @@
 #############################################################################
 #
 # This file is part of the ViSP software.
-# Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+# Copyright (C) 2005 - 2017 by Inria. All rights reserved.
 #
 # This software is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -28,7 +28,7 @@
 # WARRANTY OF DESIGN, MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
 #
 # Description:
-# ViSP overall configuration file. 
+# ViSP overall configuration file.
 #
 # Authors:
 # Fabien Spindler
@@ -46,6 +46,9 @@ set(example_cpp
   mbtEdgeKltMultiTracking.cpp
   mbtEdgeMultiTracking.cpp
   mbtEdgeTracking.cpp
+  mbtGenericTracking.cpp
+  mbtGenericTracking2.cpp
+  mbtGenericTrackingDepth.cpp
   mbtKltTracking.cpp
   mbtKltMultiTracking.cpp
   templateTracker.cpp
@@ -60,12 +63,15 @@ set(example_cpp
 )
 
 if(VISP_HAVE_OGRE)
-  visp_set_source_file_compile_flag(mbtEdgeKltTracking.cpp -Wno-unused-parameter -Wno-unused-but-set-parameter)
-  visp_set_source_file_compile_flag(mbtEdgeKltMultiTracking.cpp -Wno-unused-parameter -Wno-unused-but-set-parameter)
-  visp_set_source_file_compile_flag(mbtEdgeMultiTracking.cpp -Wno-unused-parameter -Wno-unused-but-set-parameter)
-  visp_set_source_file_compile_flag(mbtEdgeTracking.cpp -Wno-unused-parameter -Wno-unused-but-set-parameter)
-  visp_set_source_file_compile_flag(mbtKltTracking.cpp -Wno-unused-parameter -Wno-unused-but-set-parameter)
-  visp_set_source_file_compile_flag(mbtKltMultiTracking.cpp -Wno-unused-parameter -Wno-unused-but-set-parameter)
+  visp_set_source_file_compile_flag(mbtEdgeKltTracking.cpp -Wno-unused-parameter -Wno-unused-but-set-parameter -Wno-overloaded-virtual)
+  visp_set_source_file_compile_flag(mbtEdgeKltMultiTracking.cpp -Wno-unused-parameter -Wno-unused-but-set-parameter -Wno-overloaded-virtual)
+  visp_set_source_file_compile_flag(mbtEdgeMultiTracking.cpp -Wno-unused-parameter -Wno-unused-but-set-parameter -Wno-overloaded-virtual)
+  visp_set_source_file_compile_flag(mbtEdgeTracking.cpp -Wno-unused-parameter -Wno-unused-but-set-parameter -Wno-overloaded-virtual)
+  visp_set_source_file_compile_flag(mbtKltTracking.cpp -Wno-unused-parameter -Wno-unused-but-set-parameter -Wno-overloaded-virtual)
+  visp_set_source_file_compile_flag(mbtKltMultiTracking.cpp -Wno-unused-parameter -Wno-unused-but-set-parameter -Wno-overloaded-virtual)
+  visp_set_source_file_compile_flag(mbtGenericTracking.cpp -Wno-unused-parameter -Wno-unused-but-set-parameter -Wno-overloaded-virtual)
+  visp_set_source_file_compile_flag(mbtGenericTracking2.cpp -Wno-unused-parameter -Wno-unused-but-set-parameter -Wno-overloaded-virtual)
+  visp_set_source_file_compile_flag(mbtGenericTrackingDepth.cpp -Wno-unused-parameter -Wno-unused-but-set-parameter -Wno-overloaded-virtual)
 endif()
 
 foreach(cpp ${example_cpp})
@@ -87,17 +93,34 @@ add_test(mbtKltTracking-cao     mbtKltTracking -c -f ${OPTION_TO_DESACTIVE_DISPL
 add_test(mbtEdgeTracking-cao-nocyl    mbtEdgeTracking -c -f -C ${OPTION_TO_DESACTIVE_DISPLAY})
 add_test(mbtEdgeKltTracking-cao-nocyl mbtEdgeKltTracking -c -f -C ${OPTION_TO_DESACTIVE_DISPLAY})
 
-add_test(mbtEdgeTracking-cao-scanline    mbtEdgeTracking -c -f -l ${OPTION_TO_DESACTIVE_DISPLAY})
-add_test(mbtEdgeKltTracking-cao-scanline mbtEdgeKltTracking -c -f -l ${OPTION_TO_DESACTIVE_DISPLAY})
-add_test(mbtKltTracking-cao-scanline     mbtKltTracking -c -f -l ${OPTION_TO_DESACTIVE_DISPLAY})
+add_test(mbtEdgeTracking-cao-scanline    mbtEdgeTracking -c -f -l ${OPTION_TO_DESACTIVE_DISPLAY} -e 20)
+add_test(mbtEdgeKltTracking-cao-scanline mbtEdgeKltTracking -c -f -l ${OPTION_TO_DESACTIVE_DISPLAY} -e 20)
+add_test(mbtKltTracking-cao-scanline     mbtKltTracking -c -f -l ${OPTION_TO_DESACTIVE_DISPLAY} -e 20)
 
 add_test(mbtEdgeMultiTracking-cao    mbtEdgeMultiTracking -c -f ${OPTION_TO_DESACTIVE_DISPLAY})
 add_test(mbtEdgeKltMultiTracking-cao mbtEdgeKltMultiTracking -c -f ${OPTION_TO_DESACTIVE_DISPLAY})
 add_test(mbtKltMultiTracking-cao     mbtKltMultiTracking -c -f ${OPTION_TO_DESACTIVE_DISPLAY})
 
-add_test(mbtEdgeMultiTracking-cao-scanline    mbtEdgeMultiTracking -c -f -l ${OPTION_TO_DESACTIVE_DISPLAY})
-add_test(mbtEdgeKltMultiTracking-cao-scanline mbtEdgeKltMultiTracking -c -f -l ${OPTION_TO_DESACTIVE_DISPLAY})
-add_test(mbtKltMultiTracking-cao-scanline     mbtKltMultiTracking -c -f -l ${OPTION_TO_DESACTIVE_DISPLAY})
+add_test(mbtEdgeMultiTracking-cao-scanline    mbtEdgeMultiTracking -c -f -l ${OPTION_TO_DESACTIVE_DISPLAY} -e 20)
+add_test(mbtEdgeKltMultiTracking-cao-scanline mbtEdgeKltMultiTracking -c -f -l ${OPTION_TO_DESACTIVE_DISPLAY} -e 20)
+add_test(mbtKltMultiTracking-cao-scanline     mbtKltMultiTracking -c -f -l ${OPTION_TO_DESACTIVE_DISPLAY} -e 20)
+
+add_test(mbtGenericTracking               mbtGenericTracking -c ${OPTION_TO_DESACTIVE_DISPLAY})
+add_test(mbtGenericTracking-cao           mbtGenericTracking -c -f ${OPTION_TO_DESACTIVE_DISPLAY})
+add_test(mbtGenericTracking-cao-nocyl     mbtGenericTracking -c -f -C ${OPTION_TO_DESACTIVE_DISPLAY})
+add_test(mbtGenericTracking-cao-scanline  mbtGenericTracking -c -f -l ${OPTION_TO_DESACTIVE_DISPLAY} -e 20)
+
+add_test(mbtGenericTracking-map               mbtGenericTracking2 -c ${OPTION_TO_DESACTIVE_DISPLAY})
+add_test(mbtGenericTracking-map-cao           mbtGenericTracking2 -c -f ${OPTION_TO_DESACTIVE_DISPLAY})
+add_test(mbtGenericTracking-map-cao-nocyl     mbtGenericTracking2 -c -f -C ${OPTION_TO_DESACTIVE_DISPLAY})
+add_test(mbtGenericTracking-map-cao-scanline  mbtGenericTracking2 -c -f -l ${OPTION_TO_DESACTIVE_DISPLAY} -e 20)
+
+add_test(mbtGenericTrackingDepth-edge-dense             mbtGenericTrackingDepth -c ${OPTION_TO_DESACTIVE_DISPLAY})
+add_test(mbtGenericTrackingDepth-edge-dense-scanline    mbtGenericTrackingDepth -c -l ${OPTION_TO_DESACTIVE_DISPLAY} -e 14)
+add_test(mbtGenericTrackingDepth-klt-dense              mbtGenericTrackingDepth -c ${OPTION_TO_DESACTIVE_DISPLAY} -t 2)
+add_test(mbtGenericTrackingDepth-klt-dense-scanline     mbtGenericTrackingDepth -c -l ${OPTION_TO_DESACTIVE_DISPLAY} -t 2 -e 14)
+add_test(mbtGenericTrackingDepth-hybrid-dense           mbtGenericTrackingDepth -c ${OPTION_TO_DESACTIVE_DISPLAY} -t 3)
+add_test(mbtGenericTrackingDepth-hybrid-dense-scanline  mbtGenericTrackingDepth -c -l ${OPTION_TO_DESACTIVE_DISPLAY} -t 3 -e 14)
 
 #disable test with Ogre otherwise we get an Ogre exception with Ogre and remote access:
 #terminate called after throwing an instance of 'Ogre::RenderingAPIException'

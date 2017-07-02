@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -73,9 +73,9 @@
 
   \ingroup group_gui_display
 
-  \brief Define the X11 console to display images.
-
-  \note Ready to use with a Unix System (tested for Linux and SunOS)
+  \brief Use the X11 console to display images on unix-like OS.
+  Thus to enable this class X11 should be installed. Installation
+  instructions are provided here https://visp.inria.fr/3rd_x11.
 
   This class define the X11 console to display  images
   It also define method to display some geometric feature (point, line, circle)

@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -38,7 +38,7 @@
 
 
 #include <visp3/core/vpConfig.h>
-#if defined(VISP_HAVE_MODULE_GUI) && (defined(_WIN32) || defined(VISP_HAVE_PTHREAD))
+#if defined(VISP_HAVE_MODULE_GUI) && ((defined(_WIN32) && !defined(WINRT_8_0)) || defined(VISP_HAVE_PTHREAD))
 #include <visp3/robot/vpSimulatorAfma6.h>
 #include <visp3/core/vpTime.h>
 #include <visp3/core/vpImagePoint.h>
@@ -71,12 +71,19 @@ vpSimulatorAfma6::vpSimulatorAfma6()
   tcur = vpTime::measureTimeMs();
 
   #if defined(_WIN32)
+#  ifdef WINRT_8_1
+  mutex_fMi = CreateMutexEx(NULL, NULL, 0, NULL);
+  mutex_artVel = CreateMutexEx(NULL, NULL, 0, NULL);
+  mutex_artCoord = CreateMutexEx(NULL, NULL, 0, NULL);
+  mutex_velocity = CreateMutexEx(NULL, NULL, 0, NULL);
+  mutex_display = CreateMutexEx(NULL, NULL, 0, NULL);
+#  else
   mutex_fMi = CreateMutex(NULL,FALSE,NULL);
   mutex_artVel = CreateMutex(NULL,FALSE,NULL);
   mutex_artCoord = CreateMutex(NULL,FALSE,NULL);
   mutex_velocity = CreateMutex(NULL,FALSE,NULL);
   mutex_display = CreateMutex(NULL,FALSE,NULL);
-
+#endif
 
   DWORD   dwThreadIdArray;
   hThread = CreateThread( 
@@ -119,12 +126,19 @@ vpSimulatorAfma6::vpSimulatorAfma6(bool do_display)
   tcur = vpTime::measureTimeMs();
   
     #if defined(_WIN32)
-  mutex_fMi = CreateMutex(NULL,FALSE,NULL);
-  mutex_artVel = CreateMutex(NULL,FALSE,NULL);
-  mutex_artCoord = CreateMutex(NULL,FALSE,NULL);
-  mutex_velocity = CreateMutex(NULL,FALSE,NULL);
-  mutex_display = CreateMutex(NULL,FALSE,NULL);
-
+#ifdef WINRT_8_1
+  mutex_fMi = CreateMutexEx(NULL, NULL, 0, NULL);
+  mutex_artVel = CreateMutexEx(NULL, NULL, 0, NULL);
+  mutex_artCoord = CreateMutexEx(NULL, NULL, 0, NULL);
+  mutex_velocity = CreateMutexEx(NULL, NULL, 0, NULL);
+  mutex_display = CreateMutexEx(NULL, NULL, 0, NULL);
+#else
+  mutex_fMi = CreateMutex(NULL, FALSE, NULL);
+  mutex_artVel = CreateMutex(NULL, FALSE, NULL);
+  mutex_artCoord = CreateMutex(NULL, FALSE, NULL);
+  mutex_velocity = CreateMutex(NULL, FALSE, NULL);
+  mutex_display = CreateMutex(NULL, FALSE, NULL);
+#endif
 
   DWORD   dwThreadIdArray;
   hThread = CreateThread( 
@@ -158,7 +172,11 @@ vpSimulatorAfma6::~vpSimulatorAfma6()
   robotStop = true;
   
   #if defined(_WIN32)
-  WaitForSingleObject(hThread,INFINITE);
+#  if defined(WINRT_8_1)
+  WaitForSingleObjectEx(hThread, INFINITE, FALSE);
+#  else // pure win32
+  WaitForSingleObject(hThread, INFINITE);
+#  endif
   CloseHandle(hThread);
   CloseHandle(mutex_fMi);
   CloseHandle(mutex_artVel);
@@ -409,7 +427,7 @@ vpSimulatorAfma6::getCameraParameters (vpCameraParameters &cam,
 {
   if (toolCustom)
   {
-    vpCameraParameters(px_int,py_int,image_width/2,image_height/2);
+    cam.initPersProjWithoutDistortion(px_int,py_int,image_width/2,image_height/2);
   }
   // Set default parameters
   switch (getToolType()) {
@@ -749,7 +767,11 @@ vpSimulatorAfma6::compute_fMi()
   vpAfma6::get_fMc(q,fMit[7]);
   
   #if defined(_WIN32)
-  WaitForSingleObject(mutex_fMi,INFINITE);
+#  if defined(WINRT_8_1)
+  WaitForSingleObjectEx(mutex_fMi, INFINITE, FALSE);
+#  else // pure win32
+  WaitForSingleObject(mutex_fMi, INFINITE);
+#  endif
   for (int i = 0; i < 8; i++)
     fMi[i] = fMit[i];
   ReleaseMutex(mutex_fMi);
@@ -1843,7 +1865,7 @@ vpSimulatorAfma6::setJointLimit(const vpColVector &limitMin, const vpColVector &
   The goal is to avoid the problems du to such configurations.
 */
 bool
-vpSimulatorAfma6::singularityTest(const vpColVector q, vpMatrix &J)
+vpSimulatorAfma6::singularityTest(const vpColVector &q, vpMatrix &J)
 {
   double q5 = q[4];
   
@@ -1910,38 +1932,6 @@ vpSimulatorAfma6::isInJointLimit ()
 }
 
 /*!
-  Get the robot displacement expressed in the camera frame since the last call
-  of this method.
-
-  \param displacement : The measured displacement in the camera frame. The
-  dimension of \e displacement is 6 (tx, ty, ty, rx, ry,
-  rz). Translations are expressed in meters, rotations in radians with
-  the Euler Rxyz representation.
-
-  \sa getDisplacement(), getArticularDisplacement()
-*/
-void
-vpSimulatorAfma6::getCameraDisplacement(vpColVector &displacement)
-{
-  getDisplacement(vpRobot::CAMERA_FRAME, displacement);
-}
-
-/*!
-  Get the robot joint displacement since the last call of this method.
-
-  \param displacement : The measured joint displacement. The dimension
-  of \e displacement is 6 (the robot joint number). All the values are
-  expressed in radians.
-
-  \sa getDisplacement(), getCameraDisplacement()
-*/
-void
-vpSimulatorAfma6::getArticularDisplacement(vpColVector  &displacement)
-{
-  getDisplacement(vpRobot::ARTICULAR_FRAME, displacement);
-}
-
-/*!
   Get the robot displacement since the last call of this method.
 
   \warning This functionnality is not implemented for the moment in the
@@ -1957,7 +1947,6 @@ vpSimulatorAfma6::getArticularDisplacement(vpColVector  &displacement)
   In camera or reference frame, rotations are expressed with the
   Euler Rxyz representation.
 
-  \sa getArticularDisplacement(), getCameraDisplacement()
 */
 void
 vpSimulatorAfma6::getDisplacement(vpRobot::vpControlFrameType frame,
@@ -2054,58 +2043,64 @@ robot.setPosition(vpRobot::ARTICULAR_FRAME, q); // Move to the joint position
 \sa savePosFile()
 */
 bool
-vpSimulatorAfma6::readPosFile(const char *filename, vpColVector &q)
+vpSimulatorAfma6::readPosFile(const std::string &filename, vpColVector &q)
 {
-  FILE * fd ;
-  fd = fopen(filename, "r") ;
-  if (fd == NULL)
+  std::ifstream fd(filename.c_str(), std::ios::in);
+
+  if(! fd.is_open()) {
     return false;
+  }
 
-  char line[FILENAME_MAX];
-  char dummy[FILENAME_MAX];
-  char head[] = "R:";
-  bool sortie = false;
+  std::string line;
+  std::string key("R:");
+  std::string id("#AFMA6 - Position");
+  bool pos_found = false;
+  int lineNum = 0;
 
-  do {
-    // Saut des lignes commencant par #
-    if (fgets (line, FILENAME_MAX, fd) != NULL) {
-      if ( strncmp (line, "#", 1) != 0) {
-        // La ligne n'est pas un commentaire
-        if ( strncmp (line, head, sizeof(head)-1) == 0) {
-          sortie = true; 	// Position robot trouvee.
-        }
-        // 	else
-        // 	  return (false); // fin fichier sans position robot.
+  q.resize(njoint);
+
+  while(std::getline(fd, line)) {
+    lineNum ++;
+    if (lineNum == 1) {
+      if(! (line.compare(0, id.size(), id) == 0)) { // check if Afma6 position file
+        std::cout << "Error: this position file " << filename << " is not for Afma6 robot" << std::endl;
+        return false;
       }
     }
-    else {
-      fclose(fd) ;
-      return (false);		/* fin fichier 	*/
+    if((line.compare(0, 1, "#") == 0)) { // skip comment
+      continue;
     }
+    if((line.compare(0, key.size(), key) == 0)) { // decode position
+      // check if there are at least njoint values in the line
+      std::vector<std::string> chain = vpIoTools::splitChain(line, std::string(" "));
+      if (chain.size() < njoint+1) // try to split with tab separator
+        chain = vpIoTools::splitChain(line, std::string("\t"));
+      if(chain.size() < njoint+1)
+        continue;
 
-  }
-  while ( sortie != true );
-
-  // Lecture des positions
-  q.resize(njoint);
-  int ret = sscanf(line, "%s %lf %lf %lf %lf %lf %lf",
-                   dummy,
-                   &q[0], &q[1], &q[2], &q[3], &q[4], &q[5]);
-
-  if (ret != 7) {
-    fclose(fd) ;
-    return false;
+      std::istringstream ss(line);
+      std::string key_;
+      ss >> key_;
+      for (unsigned int i=0; i< njoint; i++)
+        ss >> q[i];
+      pos_found = true;
+      break;
+    }
   }
 
   // converts rotations from degrees into radians
-  //q.deg2rad();
-  
   q[3] = vpMath::rad(q[3]);
   q[4] = vpMath::rad(q[4]);
   q[5] = vpMath::rad(q[5]);
 
-  fclose(fd) ;
-  return (true);
+  fd.close();
+
+  if (!pos_found) {
+    std::cout << "Error: unable to find a position for Afma6 robot in " << filename << std::endl;
+    return false;
+  }
+
+  return true;
 }
 
 /*!
@@ -2131,11 +2126,10 @@ vpSimulatorAfma6::readPosFile(const char *filename, vpColVector &q)
   \sa readPosFile()
 */
 bool
-vpSimulatorAfma6::savePosFile(const char *filename, const vpColVector &q)
+vpSimulatorAfma6::savePosFile(const std::string &filename, const vpColVector &q)
 {
-
   FILE * fd ;
-  fd = fopen(filename, "w") ;
+  fd = fopen(filename.c_str(), "w") ;
   if (fd == NULL)
     return false;
 

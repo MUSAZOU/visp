@@ -2,7 +2,7 @@
  *
  * This file is part of the ViSP software.
  * Copyright (C) 2005 - 2016 by INRIA. All rights reserved.
- * 
+ *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * ("GPL") version 2 as published by the Free Software Foundation.
@@ -10,11 +10,11 @@
  * distribution for additional information about the GNU GPL.
  *
  * For using ViSP with software that can not be combined with the GNU
- * GPL, please contact INRIA about acquiring a ViSP Professional 
+ * GPL, please contact INRIA about acquiring a ViSP Professional
  * Edition License.
  *
  * See http://www.irisa.fr/lagadic/visp/visp.html for more information.
- * 
+ *
  * This software was developed at:
  * INRIA Rennes - Bretagne Atlantique
  * Campus Universitaire de Beaulieu
@@ -24,7 +24,7 @@
  *
  * If you have questions regarding the use of this file, please contact
  * INRIA at visp@inria.fr
- * 
+ *
  * This file is provided AS IS with NO WARRANTY OF ANY KIND, INCLUDING THE
  * WARRANTY OF DESIGN, MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
@@ -50,7 +50,7 @@
 
 #include <visp3/core/vpConfig.h>
 
-#if (defined(VISP_HAVE_OPENCV) && (VISP_HAVE_OPENCV_VERSION >= 0x020100))
+#if defined(VISP_HAVE_MODULE_KLT) && defined(VISP_HAVE_OPENCV) && (VISP_HAVE_OPENCV_VERSION >= 0x020100)
 
 #include <visp3/mbt/vpMbKltTracker.h>
 
@@ -80,6 +80,14 @@ protected:
 
   //! Name of the reference camera
   std::string m_referenceCameraName;
+  //! Interaction matrix
+  vpMatrix m_L_kltMulti;
+  //! (s - s*)
+  vpColVector m_error_kltMulti;
+  //! Robust weights
+  vpColVector m_w_kltMulti;
+  //! Weighted error
+  vpColVector m_weightedError_kltMulti;
 
 public:
   vpMbKltMultiTracker();
@@ -151,7 +159,7 @@ public:
   virtual std::map<std::string, CvPoint2D32f*> getKltPoints();
 #endif
 
-  virtual std::map<std::string, int> getNbKltPoints() const;
+  virtual std::map<std::string, int> getKltNbPoints() const;
 
   virtual unsigned int getNbPolygon() const;
   virtual std::map<std::string, unsigned int> getMultiNbPolygon() const;
@@ -169,6 +177,14 @@ public:
   virtual void getPose(vpHomogeneousMatrix &c1Mo, vpHomogeneousMatrix &c2Mo) const;
   virtual void getPose(const std::string &cameraName, vpHomogeneousMatrix &cMo_) const;
   virtual void getPose(std::map<std::string, vpHomogeneousMatrix> &mapOfCameraPoses) const;
+
+  virtual inline vpColVector getError() const {
+    return m_error_kltMulti;
+  }
+
+  virtual inline vpColVector getRobustWeights() const {
+    return m_w_kltMulti;
+  }
 
   virtual void init(const vpImage<unsigned char>& I);
 
@@ -253,13 +269,15 @@ public:
   void setNbRayCastingAttemptsForVisibility(const unsigned int &attempts);
 #endif
 
+  virtual void setKltMaskBorder(const unsigned int &e);
+
   virtual void setKltOpencv(const vpKltOpencv& t);
   virtual void setKltOpencv(const std::map<std::string, vpKltOpencv> &mapOfOpenCVTrackers);
 
+  virtual void setKltThresholdAcceptation(const double th);
+
   virtual void setLod(const bool useLod, const std::string &name="");
   virtual void setLod(const bool useLod, const std::string &cameraName, const std::string &name);
-
-  virtual void setMaskBorder(const unsigned int &e);
 
   virtual void setMinLineLengthThresh(const double minLineLengthThresh, const std::string &name="");
 
@@ -279,7 +297,7 @@ public:
   virtual void setPose(const vpImage<unsigned char> &I, const vpHomogeneousMatrix &cMo);
 
   virtual void setPose(const vpImage<unsigned char> &I1, const vpImage<unsigned char> &I2, const vpHomogeneousMatrix &c1Mo,
-      const vpHomogeneousMatrix c2Mo, const bool firstCameraIsReference=true);
+      const vpHomogeneousMatrix &c2Mo, const bool firstCameraIsReference=true);
 
   virtual void setPose(const std::map<std::string, const vpImage<unsigned char> *> &mapOfImages,
       const vpHomogeneousMatrix &cMo_);
@@ -291,8 +309,6 @@ public:
 
   virtual void setScanLineVisibilityTest(const bool &v);
 
-  virtual void setThresholdAcceptation(const double th);
-
   virtual void setUseKltTracking(const std::string &name, const bool &useKltTracking);
 
   virtual void track(const vpImage<unsigned char> &I);
@@ -300,20 +316,29 @@ public:
   virtual void track(std::map<std::string, const vpImage<unsigned char> *> &mapOfImages);
   //@}
 
+  /*!
+    @name Deprecated functions
+  */
+  //@{
+  /* vp_deprecated */ virtual std::map<std::string, int> getNbKltPoints() const;
+  /* vp_deprecated */ virtual void setMaskBorder(const unsigned int &e);
+  /* vp_deprecated */ virtual void setThresholdAcceptation(const double th);
+  //@}
+
 protected:
   /** @name Protected Member Functions Inherited from vpMbKltMultiTracker */
   //@{
-  virtual void computeVVS(std::map<std::string, unsigned int> &mapOfNbInfos, vpColVector &w);
-  virtual void computeVVSWeights(const unsigned int iter, const unsigned int nbInfos,
-      std::map<std::string, unsigned int> &mapOfNbInfos, vpColVector &R, vpColVector &w_true, vpColVector &w,
-      std::map<std::string, vpRobust> &mapOfRobusts, double threshold);
+  virtual void computeVVS();
+  virtual void computeVVSInit();
+  virtual void computeVVSInteractionMatrixAndResidu();
+  virtual void computeVVSInteractionMatrixAndResidu(std::map<std::string, vpVelocityTwistMatrix> &mapOfVelocityTwist);
+  virtual void computeVVSWeights();
+  using vpMbTracker::computeVVSWeights;
 
-  virtual void preTracking(std::map<std::string, const vpImage<unsigned char> *> &mapOfImages,
-      std::map<std::string, unsigned int> &mapOfNbInfos,
-      std::map<std::string, unsigned int> &mapOfNbFaceUsed);
+  virtual void postTracking(std::map<std::string, const vpImage<unsigned char> *> &mapOfImages);
 
-  virtual void postTracking(std::map<std::string, const vpImage<unsigned char> *> &mapOfImages,
-      std::map<std::string, unsigned int> &mapOfNbInfos, vpColVector &w_klt);
+  virtual void preTracking(std::map<std::string, const vpImage<unsigned char> *> &mapOfImages);
+
   using vpMbKltTracker::reinit;
   virtual void reinit(/* const vpImage<unsigned char>& I */);
   //@}

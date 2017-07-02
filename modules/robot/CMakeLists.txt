@@ -1,7 +1,7 @@
 #############################################################################
 #
 # This file is part of the ViSP software.
-# Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+# Copyright (C) 2005 - 2017 by Inria. All rights reserved.
 #
 # This software is free software; you can redistribute it and/or
 # modify it under the terms of the GNU General Public License
@@ -125,6 +125,8 @@ endif()
 vp_add_module(robot visp_core OPTIONAL visp_io visp_gui visp_sensor)
 vp_glob_module_sources()
 
+vp_set_source_file_compile_flag(src/wireframe-simulator/vpKeyword.cpp -Wno-sign-conversion)
+
 if(USE_VIRTUOSE)
   # Add specific build flag to turn off warnings coming from VirtuoseAPI 3rd party
   vp_set_source_file_compile_flag(src/haptic-device/virtuose/vpVirtuose.cpp -Wno-int-to-pointer-cast)
@@ -138,6 +140,17 @@ endif()
 if(USE_COIN3D)
   # Add specific build flag to turn off warnings coming from libcoin 3rd party
   vp_set_source_file_compile_flag(src/wireframe-simulator/vpWireFrameSimulator.cpp -Wno-unused-parameter)
+  vp_set_source_file_compile_flag(src/wireframe-simulator/vpScene.cpp -Wno-unused-parameter)
+  vp_set_source_file_compile_flag(src/image-simulator/vpImageSimulator.cpp -Wno-unused-parameter)
+  vp_set_source_file_compile_flag(src/robot-simulator/vpRobotCamera.cpp -Wno-unused-parameter)
+  vp_set_source_file_compile_flag(src/robot-simulator/vpSimulatorCamera.cpp -Wno-unused-parameter)
+  vp_set_source_file_compile_flag(src/robot-simulator/vpSimulatorViper850.cpp -Wno-unused-parameter)
+  vp_set_source_file_compile_flag(src/robot-simulator/vpSimulatorAfma6.cpp -Wno-unused-parameter)
+  vp_set_source_file_compile_flag(src/robot-simulator/vpRobotWireFrameSimulator.cpp -Wno-unused-parameter)
+
+  if(USE_VIPER850)
+    vp_set_source_file_compile_flag(src/real-robot/viper/vpRobotViper850.cpp -Wno-unused-parameter)
+  endif()
 endif()
 
 # copy robot and wireframe simulator data
@@ -147,7 +160,10 @@ vp_glob_module_copy_data("src/wireframe-simulator/scene/*.sld" data/wireframe-si
 
 vp_module_include_directories(${opt_incs})
 vp_create_module(${opt_libs})
-vp_add_tests(DEPENDS_ON visp_sensor visp_vision visp_blob visp_gui CTEST_EXCLUDE_PATH virtuose)
+vp_add_tests(
+  DEPENDS_ON visp_sensor visp_vision visp_blob visp_gui
+  CTEST_EXCLUDE_PATH virtuose
+  CTEST_EXCLUDE_FILE servo-afma6/testRobotAfma6Pose.cpp servo-viper/testRobotViper850Pose.cpp )
 
 if(USE_VIRTUOSE)
   # Add specific build flag to turn off warnings coming from VirtuoseAPI 3rd party

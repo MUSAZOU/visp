@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -71,8 +71,8 @@ class VISP_EXPORT vpMbtDistanceCylinder
     vpMe *me;
     double wmean1;
     double wmean2;
-    vpFeatureLine featureline1 ;
-    vpFeatureLine featureline2 ;
+    vpFeatureLine featureline1;
+    vpFeatureLine featureline2;
     bool isTrackedCylinder;
     
   public: 
@@ -134,15 +134,15 @@ class VISP_EXPORT vpMbtDistanceCylinder
 //#endif
 
   public:
-    vpMbtDistanceCylinder() ;
-    ~vpMbtDistanceCylinder() ;
+    vpMbtDistanceCylinder();
+    ~vpMbtDistanceCylinder();
 
     void buildFrom(const vpPoint &_p1, const vpPoint &_p2, const double r);
     
     void computeInteractionMatrixError(const vpHomogeneousMatrix &cMo, const vpImage<unsigned char> &I);
     
-    void display(const vpImage<unsigned char> &I, const vpHomogeneousMatrix &cMo, const vpCameraParameters &cam, const vpColor col, const unsigned int thickness = 1, const bool displayFullModel = false);
-    void display(const vpImage<vpRGBa> &I, const vpHomogeneousMatrix &cMo, const vpCameraParameters &cam, const vpColor col, const unsigned int thickness = 1, const bool displayFullModel = false);
+    void display(const vpImage<unsigned char> &I, const vpHomogeneousMatrix &cMo, const vpCameraParameters &cam, const vpColor &col, const unsigned int thickness = 1, const bool displayFullModel = false);
+    void display(const vpImage<vpRGBa> &I, const vpHomogeneousMatrix &cMo, const vpCameraParameters &cam, const vpColor &col, const unsigned int thickness = 1, const bool displayFullModel = false);
     void displayMovingEdges(const vpImage<unsigned char> &I);
     
     /*!
@@ -265,7 +265,7 @@ class VISP_EXPORT vpMbtDistanceCylinder
 
   private:
     void project(const vpHomogeneousMatrix &cMo);
-} ;
+};
 
 #endif
 

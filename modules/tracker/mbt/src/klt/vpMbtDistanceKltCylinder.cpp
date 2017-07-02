@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -41,6 +41,10 @@
 
 
 #if defined(VISP_HAVE_MODULE_KLT) && (defined(VISP_HAVE_OPENCV) && (VISP_HAVE_OPENCV_VERSION >= 0x020100))
+
+#if defined(VISP_HAVE_CLIPPER)
+#  include <clipper.hpp> // clipper private library
+#endif
 
 #if defined(__APPLE__) && defined(__MACH__) // Apple OSX and iOS (Darwin)
 #  include <TargetConditionals.h> // To detect OSX or IOS using TARGET_OS_IPHONE or TARGET_OS_IOS macro
@@ -241,7 +245,7 @@ vpMbtDistanceKltCylinder::removeOutliers(const vpColVector& _w, const double &th
 
   nbPointsCur = 0;
   std::map<int, vpImagePoint>::const_iterator iter = curPoints.begin();
-  for( ; iter != curPoints.end(); iter++){
+  for( ; iter != curPoints.end(); ++iter){
     if(_w[k] > threshold_outlier && _w[k+1] > threshold_outlier){
 //     if(_w[k] > threshold_outlier || _w[k+1] > threshold_outlier){
       tmp[iter->first] = vpImagePoint(iter->second.get_i(), iter->second.get_j());
@@ -286,7 +290,7 @@ vpMbtDistanceKltCylinder::computeInteractionMatrixAndResidu(const vpHomogeneousM
   cylinder.changeFrame(_cMc0 * c0Mo);
 
   std::map<int, vpImagePoint>::const_iterator iter = curPoints.begin();
-  for( ; iter != curPoints.end(); iter++){
+  for( ; iter != curPoints.end(); ++iter){
     int id(iter->first);
     double i_cur(iter->second.get_i()), j_cur(iter->second.get_j());
 
@@ -297,7 +301,7 @@ vpMbtDistanceKltCylinder::computeInteractionMatrixAndResidu(const vpHomogeneousM
     p0.changeFrame(_cMc0);
     p0.project();
 
-    double x0_transform(p0.get_x()), y0_transform(p0.get_y()) ;
+    double x0_transform(p0.get_x()), y0_transform(p0.get_y());
 
     double Z = computeZ(x_cur, y_cur);
 
@@ -398,7 +402,60 @@ vpMbtDistanceKltCylinder::updateMask(
           int i_min, i_max, j_min, j_max;
           std::vector<vpImagePoint> roi;
           (*hiddenface)[(unsigned int) listIndicesCylinderBBox[kc]]->getRoiClipped(cam, roi);
+
+          double shiftBorder_d = (double) shiftBorder;
+        #if defined (VISP_HAVE_CLIPPER)
+          std::vector<vpImagePoint> roi_offset;
+
+          ClipperLib::Path path;
+          for (std::vector<vpImagePoint>::const_iterator it = roi.begin(); it != roi.end(); ++it) {
+            path.push_back( ClipperLib::IntPoint((ClipperLib::cInt) it->get_u(), (ClipperLib::cInt)it->get_v()) );
+          }
+
+          ClipperLib::Paths solution;
+          ClipperLib::ClipperOffset co;
+          co.AddPath(path, ClipperLib::jtRound, ClipperLib::etClosedPolygon);
+          co.Execute(solution, -shiftBorder_d);
+
+          //Keep biggest polygon by area
+          if (!solution.empty()) {
+            size_t index_max = 0;
+
+            if (solution.size() > 1) {
+              double max_area = 0;
+              vpPolygon polygon_area;
+
+              for (size_t i = 0; i < solution.size(); i++) {
+                std::vector<vpImagePoint> corners;
+
+                for (size_t j = 0; j < solution[i].size(); j++) {
+                  corners.push_back( vpImagePoint((double)(solution[i][j].Y), (double)(solution[i][j].X)) );
+                }
+
+                polygon_area.buildFrom(corners);
+                if (polygon_area.getArea() > max_area) {
+                  max_area = polygon_area.getArea();
+                  index_max = i;
+                }
+              }
+            }
+
+            for (size_t i = 0; i < solution[index_max].size(); i++) {
+              roi_offset.push_back( vpImagePoint((double)(solution[index_max][i].Y), (double)(solution[index_max][i].X)) );
+            }
+          } else {
+            roi_offset = roi;
+          }
+
+          vpPolygon polygon_test(roi_offset);
+          vpImagePoint imPt;
+        #endif
+
+        #if defined (VISP_HAVE_CLIPPER)
+          vpPolygon3D::getMinMaxRoi(roi_offset, i_min, i_max, j_min,j_max);
+        #else
           vpPolygon3D::getMinMaxRoi(roi, i_min, i_max, j_min,j_max);
+        #endif
 
           /* check image boundaries */
           if(i_min > height){ //underflow
@@ -414,13 +471,20 @@ vpMbtDistanceKltCylinder::updateMask(
             j_max = width;
           }
 
-          double shiftBorder_d = (double) shiftBorder;
         #if (VISP_HAVE_OPENCV_VERSION >= 0x020408)
-          for(int i=i_min; i< i_max; i++){
+          for (int i = i_min; i < i_max; i++) {
             double i_d = (double) i;
-            for(int j=j_min; j< j_max; j++){
+
+            for(int j = j_min; j < j_max; j++) {
               double j_d = (double) j;
-              if(shiftBorder != 0){
+
+            #if defined (VISP_HAVE_CLIPPER)
+              imPt.set_ij(i_d, j_d);
+              if (polygon_test.isInside(imPt)) {
+                mask.ptr<uchar>(i)[j] = nb;
+              }
+            #else
+              if (shiftBorder != 0) {
                 if( vpPolygon::isInside(roi, i_d, j_d)
                     && vpPolygon::isInside(roi, i_d+shiftBorder_d, j_d+shiftBorder_d)
                     && vpPolygon::isInside(roi, i_d-shiftBorder_d, j_d+shiftBorder_d)
@@ -434,6 +498,7 @@ vpMbtDistanceKltCylinder::updateMask(
                   mask.at<unsigned char>(i,j) = nb;
                 }
               }
+            #endif
             }
           }
         #else
@@ -479,7 +544,7 @@ void
 vpMbtDistanceKltCylinder::displayPrimitive(const vpImage<unsigned char>& _I)
 {
   std::map<int, vpImagePoint>::const_iterator iter = curPoints.begin();
-  for( ; iter != curPoints.end(); iter++){
+  for( ; iter != curPoints.end(); ++iter){
     int id(iter->first);
     vpImagePoint iP;
     iP.set_i(static_cast<double>(iter->second.get_i()));
@@ -504,7 +569,7 @@ void
 vpMbtDistanceKltCylinder::displayPrimitive(const vpImage<vpRGBa>& _I)
 {
   std::map<int, vpImagePoint>::const_iterator iter = curPoints.begin();
-  for( ; iter != curPoints.end(); iter++){
+  for( ; iter != curPoints.end(); ++iter){
     int id(iter->first);
     vpImagePoint iP;
     iP.set_i(static_cast<double>(iter->second.get_i()));
@@ -522,7 +587,7 @@ vpMbtDistanceKltCylinder::displayPrimitive(const vpImage<vpRGBa>& _I)
 
 void
 vpMbtDistanceKltCylinder::display(const vpImage<unsigned char> &I, const vpHomogeneousMatrix &cMo, const vpCameraParameters &camera,
-                                  const vpColor col, const unsigned int thickness, const bool /*displayFullModel*/)
+                                  const vpColor &col, const unsigned int thickness, const bool /*displayFullModel*/)
 {
   //if(isvisible || displayFullModel)
   {
@@ -573,7 +638,7 @@ vpMbtDistanceKltCylinder::display(const vpImage<unsigned char> &I, const vpHomog
 
 void
 vpMbtDistanceKltCylinder::display(const vpImage<vpRGBa> &I, const vpHomogeneousMatrix &cMo, const vpCameraParameters &camera,
-                                  const vpColor col, const unsigned int thickness, const bool /*displayFullModel*/)
+                                  const vpColor &col, const unsigned int thickness, const bool /*displayFullModel*/)
 {
   //if(isvisible || displayFullModel)
   {

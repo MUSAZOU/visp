@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -136,8 +136,8 @@ public:
   unsigned int        computeNbDetectedCurrent(const vpKltOpencv& _tracker);
   void                computeInteractionMatrixAndResidu(const vpHomogeneousMatrix &cMc0, vpColVector& _R, vpMatrix& _J);
 
-  void                display(const vpImage<unsigned char> &I, const vpHomogeneousMatrix &cMo, const vpCameraParameters &cam, const vpColor col, const unsigned int thickness = 1, const bool displayFullModel = false);
-  void                display(const vpImage<vpRGBa> &I, const vpHomogeneousMatrix &cMo, const vpCameraParameters &cam, const vpColor col, const unsigned int thickness = 1, const bool displayFullModel = false);
+  void                display(const vpImage<unsigned char> &I, const vpHomogeneousMatrix &cMo, const vpCameraParameters &cam, const vpColor &col, const unsigned int thickness = 1, const bool displayFullModel = false);
+  void                display(const vpImage<vpRGBa> &I, const vpHomogeneousMatrix &cMo, const vpCameraParameters &cam, const vpColor &col, const unsigned int thickness = 1, const bool displayFullModel = false);
 
   void                displayPrimitive(const vpImage<unsigned char>& _I);
   void                displayPrimitive(const vpImage<vpRGBa>& _I);

@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -48,7 +48,7 @@
 
 #include <string>
 
-#if defined(VISP_HAVE_MODULE_GUI) && (defined(_WIN32) || defined(VISP_HAVE_PTHREAD))
+#if defined(VISP_HAVE_MODULE_GUI) && ((defined(_WIN32) && !defined(WINRT_8_0)) || defined(VISP_HAVE_PTHREAD))
 
 /*!
   \class vpSimulatorAfma6
@@ -224,8 +224,8 @@ public:
 
     void move(const char *filename) ;
 
-    static bool readPosFile(const char *filename, vpColVector &q);
-    static bool savePosFile(const char *filename, const vpColVector &q);
+    static bool readPosFile(const std::string &filename, vpColVector &q);
+    static bool savePosFile(const std::string &filename, const vpColVector &q);
     void setCameraParameters(const vpCameraParameters &cam) ;
     void setJointLimit(const vpColVector &limitMin, const vpColVector &limitMax);
 
@@ -255,7 +255,11 @@ protected:
     void getExternalImage(vpImage<vpRGBa> &I);
     inline void get_fMi(vpHomogeneousMatrix *fMit) {
 #if defined(_WIN32)
-      WaitForSingleObject(mutex_fMi,INFINITE);
+#  if defined(WINRT_8_1)
+      WaitForSingleObjectEx(mutex_fMi, INFINITE, FALSE);
+#  else // pure win32
+      WaitForSingleObject(mutex_fMi, INFINITE);
+#  endif
       for (int i = 0; i < 8; i++)
         fMit[i] = fMi[i];
       ReleaseMutex(mutex_fMi);
@@ -270,13 +274,9 @@ protected:
     void initArms();
     void initDisplay();
     int isInJointLimit (void);
-    bool singularityTest(const vpColVector q, vpMatrix &J);
+    bool singularityTest(const vpColVector &q, vpMatrix &J);
     void updateArticularPosition();
     //@}
-    
-private:
-    void getCameraDisplacement(vpColVector &displacement);
-    void getArticularDisplacement(vpColVector &displacement);
 };
 
 #endif

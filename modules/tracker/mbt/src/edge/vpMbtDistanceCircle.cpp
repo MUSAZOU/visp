@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -86,7 +86,7 @@ vpMbtDistanceCircle::~vpMbtDistanceCircle()
 void
 vpMbtDistanceCircle::project(const vpHomogeneousMatrix &cMo)
 {
-  circle->project(cMo) ;
+  circle->project(cMo);
 }
 
 
@@ -103,10 +103,10 @@ vpMbtDistanceCircle::project(const vpHomogeneousMatrix &cMo)
 void
 vpMbtDistanceCircle::buildFrom(const vpPoint &_p1, const vpPoint &_p2, const vpPoint &_p3, const double r)
 {
-  circle = new vpCircle ;
-  p1 = new vpPoint ;
-  p2 = new vpPoint ;
-  p3 = new vpPoint ;
+  circle = new vpCircle;
+  p1 = new vpPoint;
+  p2 = new vpPoint;
+  p3 = new vpPoint;
 
   // Get the points
   *p1 = _p1;
@@ -131,10 +131,10 @@ vpMbtDistanceCircle::buildFrom(const vpPoint &_p1, const vpPoint &_p2, const vpP
 void
 vpMbtDistanceCircle::setMovingEdge(vpMe *_me)
 {
-  me = _me ;
+  me = _me;
   if (meEllipse != NULL)
   {
-    meEllipse->setMe(me) ;
+    meEllipse->setMe(me);
   }
 }
 
@@ -163,7 +163,7 @@ vpMbtDistanceCircle::initMovingEdge(const vpImage<unsigned char> &I, const vpHom
 
     // Create the moving edges containers
     meEllipse = new vpMbtMeEllipse;
-    meEllipse->setMe(me) ;
+    meEllipse->setMe(me);
 
     //meEllipse->setDisplay(vpMeSite::RANGE_RESULT) ; // TODO only for debug
     meEllipse->setInitRange(me->getRange()); // TODO: check because set to zero for lines
@@ -196,7 +196,7 @@ vpMbtDistanceCircle::trackMovingEdge(const vpImage<unsigned char> &I, const vpHo
   if(isvisible){
     try
     {
-      meEllipse->track(I) ;
+      meEllipse->track(I);
     }
     catch(...)
     {
@@ -284,7 +284,7 @@ vpMbtDistanceCircle::reinitMovingEdge(const vpImage<unsigned char> &I, const vpH
 */
 void
 vpMbtDistanceCircle::display(const vpImage<unsigned char>&I, const vpHomogeneousMatrix &cMo,
-                             const vpCameraParameters &camera, const vpColor col, const unsigned int thickness,
+                             const vpCameraParameters &camera, const vpColor &col, const unsigned int thickness,
                              const bool displayFullModel )
 {
   if( (isvisible && isTrackedCircle) || displayFullModel){
@@ -316,7 +316,7 @@ vpMbtDistanceCircle::display(const vpImage<unsigned char>&I, const vpHomogeneous
 */
 void
 vpMbtDistanceCircle::display(const vpImage<vpRGBa> &I, const vpHomogeneousMatrix &cMo,
-                             const vpCameraParameters &camera, const vpColor col,
+                             const vpCameraParameters &camera, const vpColor &col,
                              const unsigned int thickness, const bool displayFullModel)
 {
   if( (isvisible && isTrackedCircle) || displayFullModel){
@@ -363,14 +363,14 @@ vpMbtDistanceCircle::displayMovingEdges(const vpImage<unsigned char> &I)
 void
 vpMbtDistanceCircle::initInteractionMatrixError()
 {
-  if (isvisible == true)
+  if (isvisible)
   {
     nbFeature = (unsigned int)meEllipse->getMeList().size();
     L.resize(nbFeature, 6);
     error.resize(nbFeature);
   }
   else
-    nbFeature = 0 ;
+    nbFeature = 0;
 }
 
 /*!
@@ -382,7 +382,7 @@ vpMbtDistanceCircle::computeInteractionMatrixError(const vpHomogeneousMatrix &cM
   if (isvisible)
   {
     // Perspective projection
-    circle->changeFrame(cMo) ;
+    circle->changeFrame(cMo);
     try{
       circle->projection();
     }

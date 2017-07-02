@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -45,11 +45,14 @@
 
 #include <visp3/core/vpConfig.h>
 
-#if defined(VISP_HAVE_MODULE_GUI) && (defined(_WIN32) || defined(VISP_HAVE_PTHREAD))
+#if defined(VISP_HAVE_MODULE_GUI) && ((defined(_WIN32) && !defined(WINRT_8_0)) || defined(VISP_HAVE_PTHREAD))
 
 #include <cmath>    // std::fabs
 #include <limits>   // numeric_limits
 #if defined(_WIN32)
+// Include WinSock2.h before windows.h to ensure that winsock.h is not included by windows.h 
+// since winsock.h and winsock2.h are incompatible
+#  include <WinSock2.h> 
 #  include <windows.h>
 #elif defined(VISP_HAVE_PTHREAD)
 #  include <pthread.h>
@@ -252,7 +255,7 @@ class VISP_EXPORT vpRobotWireFrameSimulator : protected vpWireFrameSimulator, pu
 
       \param col : The desired color.
     */
-    void setCameraColor(const vpColor col) {camColor = col;}
+    void setCameraColor(const vpColor &col) {camColor = col;}
 
     /*!
       Set the flag used to force the sampling time in the thread computing the
@@ -271,21 +274,21 @@ class VISP_EXPORT vpRobotWireFrameSimulator : protected vpWireFrameSimulator, pu
 
       \param col : The desired color.
     */
-    void setCurrentViewColor(const vpColor col) {curColor = col;}
+    void setCurrentViewColor(const vpColor &col) {curColor = col;}
 
     /*!
       Set the color used to display the object at the desired position in the robot's camera view.
 
       \param col : The desired color.
     */
-    void setDesiredViewColor(const vpColor col) {desColor = col;}
+    void setDesiredViewColor(const vpColor &col) {desColor = col;}
 
     /*!
       Set the desired position of the robot's camera relative to the object.
 
       \param cdMo_ : The desired pose of the camera.
     */
-    void setDesiredCameraPosition(const vpHomogeneousMatrix cdMo_)
+    void setDesiredCameraPosition(const vpHomogeneousMatrix &cdMo_)
     {
       this->vpWireFrameSimulator::setDesiredCameraPosition(cdMo_);
     }
@@ -301,7 +304,7 @@ class VISP_EXPORT vpRobotWireFrameSimulator : protected vpWireFrameSimulator, pu
 
       \param camMf_ : The pose of the external camera relative to the world reference frame.
     */
-    void setExternalCameraPosition(const vpHomogeneousMatrix camMf_)
+    void setExternalCameraPosition(const vpHomogeneousMatrix &camMf_)
     {
       this->vpWireFrameSimulator::setExternalCameraPosition(camMf_);
     }
@@ -358,7 +361,7 @@ class VISP_EXPORT vpRobotWireFrameSimulator : protected vpWireFrameSimulator, pu
 #if defined(_WIN32)
     static DWORD WINAPI launcher( LPVOID lpParam )
     {
-      ((vpRobotWireFrameSimulator *)lpParam)->updateArticularPosition();
+      (static_cast<vpRobotWireFrameSimulator *>(lpParam))->updateArticularPosition();
       return 0;
     }
 #elif defined(VISP_HAVE_PTHREAD)
@@ -385,42 +388,74 @@ class VISP_EXPORT vpRobotWireFrameSimulator : protected vpWireFrameSimulator, pu
 
 	#if defined(_WIN32)
     vpColVector get_artCoord() const {
+#  if defined(WINRT_8_1)
+      WaitForSingleObjectEx(mutex_artCoord, INFINITE, FALSE);
+#  else // pure win32
       WaitForSingleObject(mutex_artCoord,INFINITE);
+#  endif
       vpColVector artCoordTmp (6);
       artCoordTmp = artCoord;
       ReleaseMutex(mutex_artCoord);
       return artCoordTmp;}
     void set_artCoord(const vpColVector &coord) {
-      WaitForSingleObject(mutex_artCoord,INFINITE);
+#  if defined(WINRT_8_1)
+      WaitForSingleObjectEx(mutex_artCoord, INFINITE, FALSE);
+#  else // pure win32
+      WaitForSingleObject(mutex_artCoord, INFINITE);
+#  endif
       artCoord = coord;
       ReleaseMutex(mutex_artCoord);}
     
     vpColVector get_artVel() const {
-      WaitForSingleObject(mutex_artVel,INFINITE);
+#  if defined(WINRT_8_1)
+      WaitForSingleObjectEx(mutex_artVel, INFINITE, FALSE);
+#  else // pure win32
+      WaitForSingleObject(mutex_artVel, INFINITE);
+#  endif
       vpColVector artVelTmp (artVel);
       ReleaseMutex(mutex_artVel);
       return artVelTmp;}
     void set_artVel(const vpColVector &vel) {
-      WaitForSingleObject(mutex_artVel,INFINITE);
+#  if defined(WINRT_8_1)
+      WaitForSingleObjectEx(mutex_artVel, INFINITE, FALSE);
+#  else // pure win32
+      WaitForSingleObject(mutex_artVel, INFINITE);
+#  endif
       artVel = vel;
       ReleaseMutex(mutex_artVel);}
     
     vpColVector get_velocity() {
-      WaitForSingleObject(mutex_velocity,INFINITE);
+#  if defined(WINRT_8_1)
+      WaitForSingleObjectEx(mutex_velocity, INFINITE, FALSE);
+#  else // pure win32
+      WaitForSingleObject(mutex_velocity, INFINITE);
+#  endif
       vpColVector velocityTmp = velocity;
       ReleaseMutex(mutex_velocity);
       return velocityTmp;}
     void set_velocity(const vpColVector &vel) {
-      WaitForSingleObject(mutex_velocity,INFINITE);
+#  if defined(WINRT_8_1)
+      WaitForSingleObjectEx(mutex_velocity, INFINITE, FALSE);
+#  else // pure win32
+      WaitForSingleObject(mutex_velocity, INFINITE);
+#  endif
       velocity = vel;
       ReleaseMutex(mutex_velocity);}
       
     void set_displayBusy (const bool &status) {
-      WaitForSingleObject(mutex_display,INFINITE);
+#  if defined(WINRT_8_1)
+      WaitForSingleObjectEx(mutex_display, INFINITE, FALSE);
+#  else // pure win32
+      WaitForSingleObject(mutex_display, INFINITE);
+#  endif
       displayBusy = status;
       ReleaseMutex(mutex_display);}
     bool get_displayBusy () {
-      WaitForSingleObject(mutex_display,INFINITE);
+#  if defined(WINRT_8_1)
+      WaitForSingleObjectEx(mutex_display, INFINITE, FALSE);
+#  else // pure win32
+      WaitForSingleObject(mutex_display, INFINITE);
+#  endif
       bool status = displayBusy;
       if (!displayBusy) displayBusy = true;
       ReleaseMutex(mutex_display);

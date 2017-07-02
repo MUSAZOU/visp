@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -403,11 +403,12 @@ std::vector<int> vpNetwork::receiveAndDecodeRequest()
 std::vector<int> vpNetwork::receiveAndDecodeRequestFrom(const unsigned int &receptorEmitting)
 {
   std::vector<int> res = receiveRequestFrom(receptorEmitting);
-  for(unsigned int i = 0 ; i < res.size() ; i++)
+  for(unsigned int i = 0 ; i < res.size() ; i++) {
     if(res[i] != -1)
       request_list[(unsigned)res[i]]->decode();
+  }
   
-    return res;
+  return res;
 }
 
 /*!

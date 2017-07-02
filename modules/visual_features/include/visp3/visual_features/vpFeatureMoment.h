@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -180,7 +180,7 @@ public:
       moments(data_base),
       featureMomentsDataBase(featureMoments),
       interaction_matrices(nbmatrices),
-      A(A_),B(B_),C(C_)
+      A(A_),B(B_),C(C_),_name()
   {}
 
   virtual ~vpFeatureMoment();

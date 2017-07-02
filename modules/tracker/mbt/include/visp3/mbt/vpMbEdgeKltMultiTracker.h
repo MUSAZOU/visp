@@ -2,7 +2,7 @@
  *
  * This file is part of the ViSP software.
  * Copyright (C) 2005 - 2016 by INRIA. All rights reserved.
- * 
+ *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
  * ("GPL") version 2 as published by the Free Software Foundation.
@@ -10,11 +10,11 @@
  * distribution for additional information about the GNU GPL.
  *
  * For using ViSP with software that can not be combined with the GNU
- * GPL, please contact INRIA about acquiring a ViSP Professional 
+ * GPL, please contact INRIA about acquiring a ViSP Professional
  * Edition License.
  *
  * See http://www.irisa.fr/lagadic/visp/visp.html for more information.
- * 
+ *
  * This software was developed at:
  * INRIA Rennes - Bretagne Atlantique
  * Campus Universitaire de Beaulieu
@@ -24,7 +24,7 @@
  *
  * If you have questions regarding the use of this file, please contact
  * INRIA at visp@inria.fr
- * 
+ *
  * This file is provided AS IS with NO WARRANTY OF ANY KIND, INCLUDING THE
  * WARRANTY OF DESIGN, MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE.
  *
@@ -50,7 +50,7 @@
 
 #include <visp3/core/vpConfig.h>
 
-#if (defined(VISP_HAVE_OPENCV) && (VISP_HAVE_OPENCV_VERSION >= 0x020100))
+#if defined(VISP_HAVE_MODULE_KLT) && defined(VISP_HAVE_OPENCV) && (VISP_HAVE_OPENCV_VERSION >= 0x020100)
 
 #include <visp3/mbt/vpMbEdgeMultiTracker.h>
 #include <visp3/mbt/vpMbKltMultiTracker.h>
@@ -73,10 +73,6 @@
 class VISP_EXPORT vpMbEdgeKltMultiTracker: public vpMbEdgeMultiTracker, public vpMbKltMultiTracker
 {
 protected:
-  //! If true, compute the interaction matrix at each iteration of the minimization. Otherwise, compute it only on the first iteration.
-  bool compute_interaction;
-  //! The gain of the virtual visual servoing stage.
-  double lambda;
   //! Factor for KLT trackers.
   double m_factorKLT;
   //! Factor for edge trackers.
@@ -85,14 +81,22 @@ protected:
   double thresholdKLT;
   //! The threshold used in the robust estimation of MBT.
   double thresholdMBT;
-  //! The maximum iteration of the virtual visual servoing stage.
-  unsigned int maxIter;
 
   //! Map of camera transformation matrix between the current camera frame to the reference camera frame (cCurrent_M_cRef)
   std::map<std::string, vpHomogeneousMatrix> m_mapOfCameraTransformationMatrix;
 
   //! Name of the reference camera
   std::string m_referenceCameraName;
+  //! Number of features
+  unsigned int m_nbrow;
+  //! Interaction matrix
+  vpMatrix m_L_hybridMulti;
+  //! (s - s*)
+  vpColVector m_error_hybridMulti;
+  //! Robust weights
+  vpColVector m_w_hybridMulti;
+  //! Weighted error
+  vpColVector m_weightedError_hybridMulti;
 
 
 public:
@@ -178,6 +182,14 @@ public:
   virtual void getPose(vpHomogeneousMatrix &c1Mo, vpHomogeneousMatrix &c2Mo) const;
   virtual void getPose(const std::string &cameraName, vpHomogeneousMatrix &cMo_) const;
   virtual void getPose(std::map<std::string, vpHomogeneousMatrix> &mapOfCameraPoses) const;
+
+  virtual inline vpColVector getError() const {
+    return m_error_hybridMulti;
+  }
+
+  virtual inline vpColVector getRobustWeights() const {
+    return m_w_hybridMulti;
+  }
 
   virtual void init(const vpImage<unsigned char>& I);
 
@@ -326,7 +338,7 @@ public:
   virtual void setPose(const vpImage<unsigned char> &I, const vpHomogeneousMatrix &cMo);
 
   virtual void setPose(const vpImage<unsigned char> &I1, const vpImage<unsigned char> &I2, const vpHomogeneousMatrix &c1Mo,
-      const vpHomogeneousMatrix c2Mo, const bool firstCameraIsReference=true);
+      const vpHomogeneousMatrix &c2Mo, const bool firstCameraIsReference=true);
 
   virtual void setPose(const std::map<std::string, const vpImage<unsigned char> *> &mapOfImages,
       const vpHomogeneousMatrix &cMo_);
@@ -354,31 +366,24 @@ protected:
   using vpMbEdgeMultiTracker::computeVVS;
   using vpMbKltMultiTracker::computeVVS;
 
-  virtual void computeVVS(std::map<std::string, const vpImage<unsigned char> *> &mapOfImages,
-      std::map<std::string, unsigned int> &mapOfNumberOfRows, std::map<std::string, unsigned int> &mapOfNbInfos,
-      vpColVector &w_mbt, vpColVector &w_klt, const unsigned int lvl=0);
+  virtual void computeVVS(std::map<std::string, const vpImage<unsigned char> *> &mapOfImages, const unsigned int lvl=0);
+  virtual void computeVVSInit();
+  virtual void computeVVSInteractionMatrixAndResidu();
+  using vpMbEdgeMultiTracker::computeVVSInteractionMatrixAndResidu;
+  using vpMbKltMultiTracker::computeVVSInteractionMatrixAndResidu;
+  virtual void computeVVSInteractionMatrixAndResidu(std::map<std::string, const vpImage<unsigned char> *> &mapOfImages,
+                                                    std::map<std::string, vpVelocityTwistMatrix> &mapOfVelocityTwist);
+  virtual void computeVVSWeights();
+  using vpMbTracker::computeVVSWeights;
 
-  virtual unsigned int initMbtTracking(std::vector<FeatureType> &indexOfFeatures,
-      std::map<std::string, unsigned int> &mapOfNumberOfRows,
-      std::map<std::string, unsigned int> &mapOfNumberOfLines,
-      std::map<std::string, unsigned int> &mapOfNumberOfCylinders,
-      std::map<std::string, unsigned int> &mapOfNumberOfCircles);
+  virtual unsigned int initMbtTracking(std::map<std::string, const vpImage<unsigned char> *> &mapOfImages, unsigned int lvl);
 
   //Same thing as computeVVS
   using vpMbKltMultiTracker::postTracking;
 
-  virtual void postTracking(std::map<std::string, const vpImage<unsigned char> *> &mapOfImages,
-      vpColVector &w_mbt, vpColVector &w_klt, std::map<std::string, unsigned int> &mapOfNumberOfRows,
-      std::map<std::string, unsigned int> &mapOfNbInfos, const unsigned int lvl);
+  virtual void postTracking(std::map<std::string, const vpImage<unsigned char> *> &mapOfImages, const unsigned int lvl);
 
   virtual void reinit(/*const vpImage<unsigned char>& I*/);
-
-  virtual unsigned int trackFirstLoop(std::map<std::string, const vpImage<unsigned char> *> &mapOfImages, vpColVector &factor,
-      std::vector<FeatureType> &indexOfFeatures,
-      std::map<std::string, unsigned int> &mapOfNumberOfRows,
-      std::map<std::string, unsigned int> &mapOfNumberOfLines,
-      std::map<std::string, unsigned int> &mapOfNumberOfCylinders,
-      std::map<std::string, unsigned int> &mapOfNumberOfCircles, const unsigned int lvl);
 
   virtual void trackMovingEdges(std::map<std::string, const vpImage<unsigned char> *> &mapOfImages);
 };

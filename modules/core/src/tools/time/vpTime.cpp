@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -93,7 +93,8 @@ double getMinTimeForUsleepCall()
 double measureTimeMs()
 {
 #if defined(_WIN32)
-  LARGE_INTEGER time, frequency;
+#if !defined(WINRT)
+	LARGE_INTEGER time, frequency;
   QueryPerformanceFrequency(&frequency);
   if(frequency.QuadPart == 0){
     return(timeGetTime());
@@ -102,6 +103,9 @@ double measureTimeMs()
     QueryPerformanceCounter(&time);
     return (double)(1000.0*time.QuadPart/frequency.QuadPart);
   }
+#  else
+	throw(vpException(vpException::fatalError, "Cannot get time: not implemented on Universal Windows Platform"));
+#  endif
 #elif !defined(_WIN32) && (defined(__unix__) || defined(__unix) || (defined(__APPLE__) && defined(__MACH__))) // UNIX
   struct timeval tp;
   gettimeofday(&tp,0);
@@ -117,7 +121,8 @@ double measureTimeMs()
 double measureTimeMicros()
 {
 #if defined(_WIN32)
-  LARGE_INTEGER time, frequency;
+#if !defined(WINRT)
+	LARGE_INTEGER time, frequency;
   QueryPerformanceFrequency(&frequency);
   if(frequency.QuadPart == 0){
     return(timeGetTime());
@@ -126,8 +131,10 @@ double measureTimeMicros()
     QueryPerformanceCounter(&time);
     return (double)(1000000.0*time.QuadPart/frequency.QuadPart);
   }
-#else
-
+#  else
+	throw(vpException(vpException::fatalError, "Cannot get time: not implemented on Universal Windows Platform"));
+#  endif
+#elif !defined(_WIN32) && (defined(__unix__) || defined(__unix) || (defined(__APPLE__) && defined(__MACH__))) // UNIX
   struct timeval tp;
   gettimeofday(&tp,0);
   return(1000000.0*tp.tv_sec + tp.tv_usec);
@@ -161,11 +168,6 @@ int wait(double t0, double t)
     if (timeToWait > vpTime::minTimeForUsleepCall) {
       usleep((useconds_t)((timeToWait-vpTime::minTimeForUsleepCall)*1000));
     }
-#elif defined(_WIN32)
-    if (timeToWait > vpTime::minTimeForUsleepCall) {
-      Sleep((DWORD)(timeToWait-vpTime::minTimeForUsleepCall));
-    }
-#endif
     // Blocking loop to have an accurate waiting
     do {
       timeCurrent = measureTimeMs();
@@ -174,6 +176,23 @@ int wait(double t0, double t)
     } while (timeToWait > 0.);
 
     return 0;
+#elif defined(_WIN32)
+#  if !defined(WINRT_8_0) 
+    if (timeToWait > vpTime::minTimeForUsleepCall) {
+      Sleep((DWORD)(timeToWait-vpTime::minTimeForUsleepCall));
+    }
+    // Blocking loop to have an accurate waiting
+    do {
+      timeCurrent = measureTimeMs();
+      timeToWait = t0 + t - timeCurrent;
+
+    } while (timeToWait > 0.);
+
+    return 0;
+#  else
+    throw(vpException(vpException::functionNotImplementedError, "vpTime::wait() is not implemented on Windows Phone 8.0"));
+#  endif
+#endif
   }
 }
 
@@ -188,31 +207,42 @@ int wait(double t0, double t)
 */
 void wait(double t)
 {
-  double t0, timeCurrent, timeToWait;
-  t0 = timeCurrent = measureTimeMs();
-
-  timeToWait = t;
+  double timeToWait = t;
 
   if ( timeToWait <= 0. ) // no need to wait
     return;
   else {
 #if !defined(_WIN32) && (defined(__unix__) || defined(__unix) || (defined(__APPLE__) && defined(__MACH__))) // UNIX
+    double t0 = measureTimeMs();
     if (timeToWait > vpTime::minTimeForUsleepCall) {
       usleep((useconds_t)((timeToWait-vpTime::minTimeForUsleepCall)*1000));
     }
-#elif defined(_WIN32)
-    if (timeToWait > vpTime::minTimeForUsleepCall) {
-      Sleep((DWORD)(timeToWait-vpTime::minTimeForUsleepCall));
-    }
-#endif
     // Blocking loop to have an accurate waiting
     do {
-      timeCurrent = measureTimeMs();
+      double timeCurrent = measureTimeMs();
       timeToWait = t0 + t - timeCurrent;
 
     } while (timeToWait > 0.);
 
     return;
+#elif defined(_WIN32)
+#  if !defined(WINRT_8_0) 
+    double t0 = measureTimeMs();
+    if (timeToWait > vpTime::minTimeForUsleepCall) {
+      Sleep((DWORD)(timeToWait-vpTime::minTimeForUsleepCall));
+    }
+    // Blocking loop to have an accurate waiting
+    do {
+      double timeCurrent = measureTimeMs();
+      timeToWait = t0 + t - timeCurrent;
+
+    } while (timeToWait > 0.);
+
+    return;
+#  else
+    throw(vpException(vpException::functionNotImplementedError, "vpTime::wait() is not implemented on Windows Phone 8.0"));
+#  endif
+#endif
   }
 }
 
@@ -238,7 +268,11 @@ void sleepMs(double t)
 #if !defined(_WIN32) && (defined(__unix__) || defined(__unix) || (defined(__APPLE__) && defined(__MACH__))) // UNIX
   usleep((useconds_t)(t*1000));
 #elif defined(_WIN32)
+#  if !defined(WINRT_8_0) 
   Sleep((DWORD)(t));
+#  else
+  throw(vpException(vpException::functionNotImplementedError, "vpTime::sleepMs() is not implemented on Windows Phone 8.0"));
+#  endif
 #endif
 }
 

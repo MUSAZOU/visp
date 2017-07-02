@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -67,7 +67,9 @@
 
   \ingroup group_gui_display
 
-  \brief The vpDisplayOpenCV allows to display image using the opencv library.
+  \brief The vpDisplayOpenCV allows to display image using the OpenCV library.
+  Thus to enable this class OpenCV should be installed. Installation
+  instructions are provided here https://visp.inria.fr/3rd_opencv.
 
   The example below shows how to display an image with this video device.
   \code

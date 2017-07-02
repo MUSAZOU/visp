@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -72,7 +72,7 @@ class VISP_EXPORT vpMbtDistanceLine
     bool isTrackedLine;
     bool isTrackedLineWithVisibility;
     double wmean;
-    vpFeatureLine featureline ;
+    vpFeatureLine featureline;
     //! Polygon describing the line
     vpMbtPolygon poly;
     
@@ -125,8 +125,8 @@ class VISP_EXPORT vpMbtDistanceLine
 //#endif
 
   public:
-    vpMbtDistanceLine() ;
-    ~vpMbtDistanceLine() ;
+    vpMbtDistanceLine();
+    ~vpMbtDistanceLine();
 
     void addPolygon(const int &index);
 
@@ -135,8 +135,8 @@ class VISP_EXPORT vpMbtDistanceLine
     bool closeToImageBorder(const vpImage<unsigned char>& I, const unsigned int threshold);
     void computeInteractionMatrixError(const vpHomogeneousMatrix &cMo);
     
-    void display(const vpImage<unsigned char> &I, const vpHomogeneousMatrix &cMo, const vpCameraParameters &cam, const vpColor col, const unsigned int thickness = 1, const bool displayFullModel = false);
-    void display(const vpImage<vpRGBa> &I, const vpHomogeneousMatrix &cMo, const vpCameraParameters &cam, const vpColor col, const unsigned int thickness = 1, const bool displayFullModel = false);
+    void display(const vpImage<unsigned char> &I, const vpHomogeneousMatrix &cMo, const vpCameraParameters &cam, const vpColor &col, const unsigned int thickness = 1, const bool displayFullModel = false);
+    void display(const vpImage<vpRGBa> &I, const vpHomogeneousMatrix &cMo, const vpCameraParameters &cam, const vpColor &col, const unsigned int thickness = 1, const bool displayFullModel = false);
     void displayMovingEdges(const vpImage<unsigned char> &I);
     
     /*!
@@ -222,7 +222,7 @@ class VISP_EXPORT vpMbtDistanceLine
       
       \param line_name : The name of the line.
     */
-    inline void setName(const std::string line_name) {this->name = line_name;}
+    inline void setName(const std::string &line_name) {this->name = line_name;}
     
     /*!
       Set the name of the line.
@@ -248,7 +248,7 @@ class VISP_EXPORT vpMbtDistanceLine
 
   private:
     void project(const vpHomogeneousMatrix &cMo);
-} ;
+};
 
 #endif
 

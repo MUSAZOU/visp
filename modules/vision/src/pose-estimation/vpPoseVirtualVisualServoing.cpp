@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -87,7 +87,8 @@ vpPose::poseVirtualVS(vpHomogeneousMatrix & cMo)
 
     vpHomogeneousMatrix cMoPrev = cMo;
     //while((int)((residu_1 - r)*1e12) !=0)
-    while(std::fabs((residu_1 - r)*1e12) > std::numeric_limits<double>::epsilon())
+//    while(std::fabs((residu_1 - r)*1e12) > std::numeric_limits<double>::epsilon())
+    while( std::fabs(residu_1 - r) > vvsEpsilon )
     {      
       residu_1 = r ;
 

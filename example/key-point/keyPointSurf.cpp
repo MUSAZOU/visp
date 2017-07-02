@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -315,8 +315,6 @@ main(int argc, const char ** argv)
     //Computes the reference points
     /* nbrRef = */ surf.buildReference(Iref, corners[0], height, width);
 
-    unsigned int nbrPair = 0;
-
     vpImageIo::read(Icur, filename);
 
     if (opt_display) {
@@ -348,7 +346,7 @@ main(int argc, const char ** argv)
         vpDisplay::display(Icur) ;
       }
 
-      nbrPair = surf.matchPoint(Icur);
+      unsigned int nbrPair = surf.matchPoint(Icur);
       std::cout << "Number of matched point : " << nbrPair <<std::endl;
 
       if (opt_display)

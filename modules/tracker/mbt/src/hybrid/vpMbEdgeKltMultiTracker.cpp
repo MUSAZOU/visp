@@ -44,7 +44,7 @@
 
 #include <visp3/core/vpConfig.h>
 
-#if (defined(VISP_HAVE_OPENCV) && (VISP_HAVE_OPENCV_VERSION >= 0x020100))
+#if defined(VISP_HAVE_MODULE_KLT) && defined(VISP_HAVE_OPENCV) && (VISP_HAVE_OPENCV_VERSION >= 0x020100)
 
 #include <visp3/core/vpTrackingException.h>
 #include <visp3/core/vpVelocityTwistMatrix.h>
@@ -56,11 +56,16 @@
 */
 vpMbEdgeKltMultiTracker::vpMbEdgeKltMultiTracker()
     : vpMbEdgeMultiTracker(), vpMbKltMultiTracker(),
-      compute_interaction(true), lambda(0.8), m_factorKLT(0.65), m_factorMBT(0.35),
-      thresholdKLT(2.), thresholdMBT(2.), maxIter(200),
-      m_mapOfCameraTransformationMatrix(), m_referenceCameraName("Camera") {
+      m_factorKLT(0.65), m_factorMBT(0.35),
+      thresholdKLT(2.), thresholdMBT(2.),
+      m_mapOfCameraTransformationMatrix(), m_referenceCameraName("Camera"),
+      m_nbrow(0), m_L_hybridMulti(), m_error_hybridMulti(), m_w_hybridMulti(), m_weightedError_hybridMulti()
+{
   //Add default camera transformation matrix
   m_mapOfCameraTransformationMatrix["Camera"] = vpHomogeneousMatrix();
+
+  m_lambda = 0.8;
+  m_maxIter = 200;
 }
 
 /*!
@@ -70,9 +75,11 @@ vpMbEdgeKltMultiTracker::vpMbEdgeKltMultiTracker()
 */
 vpMbEdgeKltMultiTracker::vpMbEdgeKltMultiTracker(const unsigned int nbCameras)
     : vpMbEdgeMultiTracker(nbCameras), vpMbKltMultiTracker(nbCameras),
-      compute_interaction(true), lambda(0.8), m_factorKLT(0.65), m_factorMBT(0.35),
-      thresholdKLT(2.), thresholdMBT(2.), maxIter(200),
-      m_mapOfCameraTransformationMatrix(), m_referenceCameraName("Camera") {
+      m_factorKLT(0.65), m_factorMBT(0.35),
+      thresholdKLT(2.), thresholdMBT(2.),
+      m_mapOfCameraTransformationMatrix(), m_referenceCameraName("Camera"),
+      m_nbrow(0), m_L_hybridMulti(), m_error_hybridMulti(), m_w_hybridMulti(), m_weightedError_hybridMulti()
+{
 
   if(nbCameras == 0) {
     throw vpException(vpTrackingException::fatalError, "Cannot construct a vpMbkltMultiTracker with no camera !");
@@ -98,6 +105,9 @@ vpMbEdgeKltMultiTracker::vpMbEdgeKltMultiTracker(const unsigned int nbCameras)
     //Set by default the reference camera to the first one
     m_referenceCameraName = m_mapOfKltTrackers.begin()->first;
   }
+
+  m_lambda = 0.8;
+  m_maxIter = 200;
 }
 
 /*!
@@ -107,326 +117,100 @@ vpMbEdgeKltMultiTracker::vpMbEdgeKltMultiTracker(const unsigned int nbCameras)
 */
 vpMbEdgeKltMultiTracker::vpMbEdgeKltMultiTracker(const std::vector<std::string> &cameraNames)
     : vpMbEdgeMultiTracker(cameraNames), vpMbKltMultiTracker(cameraNames),
-      compute_interaction(true), lambda(0.8), m_factorKLT(0.65), m_factorMBT(0.35),
-      thresholdKLT(2.), thresholdMBT(2.), maxIter(200),
-      m_mapOfCameraTransformationMatrix(), m_referenceCameraName("Camera") {
-  //Set by default the reference camera
-  m_referenceCameraName = cameraNames.front();
+      m_factorKLT(0.65), m_factorMBT(0.35),
+      thresholdKLT(2.), thresholdMBT(2.),
+      m_mapOfCameraTransformationMatrix(), m_referenceCameraName(cameraNames.front()),
+      m_nbrow(0), m_L_hybridMulti(), m_error_hybridMulti(), m_w_hybridMulti(), m_weightedError_hybridMulti()
+{
+  m_lambda = 0.8;
+  m_maxIter = 200;
 }
 
 vpMbEdgeKltMultiTracker::~vpMbEdgeKltMultiTracker() {
 }
 
-void vpMbEdgeKltMultiTracker::computeVVS(std::map<std::string, const vpImage<unsigned char> *> &mapOfImages,
-    std::map<std::string, unsigned int> &mapOfNumberOfRows, std::map<std::string, unsigned int> &mapOfNbInfos,
-    vpColVector &w_mbt, vpColVector &w_klt, const unsigned int lvl) {
+void vpMbEdgeKltMultiTracker::computeVVS(std::map<std::string, const vpImage<unsigned char> *> &mapOfImages, const unsigned int lvl) {
 
-  //Factor for MBT, each factor for each camera are appended
-  vpColVector factor;
-  //Indicate for each row in the final interaction matrix or residual or weight for the MBT part
-  //whether the considered features is a line, a cylinder or a circle
-  std::vector<FeatureType> indexOfFeatures;
-  std::map<std::string, unsigned int> mapOfNumberOfLines;
-  std::map<std::string, unsigned int> mapOfNumberOfCylinders;
-  std::map<std::string, unsigned int> mapOfNumberOfCircles;
-  //Get the number of rows for the MBT part
-  //Get also the number of rows, lines, cylinders and circle for each camera
-  unsigned int nbrow = trackFirstLoop(mapOfImages, factor, indexOfFeatures,
-      mapOfNumberOfRows, mapOfNumberOfLines, mapOfNumberOfCylinders, mapOfNumberOfCircles, lvl);
+  m_nbrow = initMbtTracking(mapOfImages, lvl);
 
-//  unsigned int nbInfos = w_klt.size() / 2;
-  unsigned int nbInfos = 0;
-  for(std::map<std::string, unsigned int>::const_iterator it = mapOfNbInfos.begin(); it != mapOfNbInfos.end(); ++it) {
-    nbInfos += it->second;
+  if(m_nbInfos < 4 && m_nbrow < 4) {
+    throw vpTrackingException(vpTrackingException::notEnoughPointError, "Error: not enough features");
+  } else if(m_nbrow < 4) {
+    m_nbrow = 0;
   }
-
-  if(nbInfos < 4 && nbrow < 4) {
-    throw vpTrackingException(vpTrackingException::notEnoughPointError, "\n\t\t Error-> not enough data");
-  } else if(nbrow < 4) {
-    nbrow = 0;
-  }
-
-//  double factorMBT = 1.0;
-//  double factorKLT = 1.0;
-//
-//  //More efficient weight repartition for hybrid tracker should come soon...
-////   factorMBT = 1.0 - (double)nbrow / (double)(nbrow + nbInfos);
-////   factorKLT = 1.0 - factorMBT;
-//  factorMBT = 0.35;
-//  factorKLT = 0.65;
 
   double factorMBT = m_factorMBT;
   double factorKLT = m_factorKLT;
-  if (nbrow < 4) {
+  if (m_nbrow < 4) {
     factorKLT = 1.;
     std::cerr << "There are less than 4 KLT features, set factorKLT = 1. !" << std::endl;
   }
 
-  if (nbInfos < 4) {
+  if (m_nbInfos < 4) {
     factorMBT = 1.;
     std::cerr << "There are less than 4 moving edges, set factorMBT = 1. !" << std::endl;
-    nbInfos = 0;
+    m_nbInfos = 0;
   }
 
+  computeVVSInit();
 
   vpHomogeneousMatrix cMoPrev;
   vpHomogeneousMatrix ctTc0_Prev;
   //Error vector for MBT + KLT for the previous iteration
-  vpColVector m_error_prev(2*nbInfos + nbrow);
+  vpColVector m_error_prev;
   //Weighting vector for MBT + KLT for the previous iteration
-  vpColVector m_w_prev(2*nbInfos + nbrow);
-  double mu = 0.01;
+  vpColVector m_w_prev;
+  double mu = m_initialMu;
 
   //Create the map of VelocityTwistMatrices
   std::map<std::string, vpVelocityTwistMatrix> mapOfVelocityTwist;
-  for(std::map<std::string, vpHomogeneousMatrix>::const_iterator it = m_mapOfCameraTransformationMatrix.begin();
-      it != m_mapOfCameraTransformationMatrix.end(); ++it) {
+  for(std::map<std::string, vpHomogeneousMatrix>::const_iterator it = m_mapOfCameraTransformationMatrix.begin(); it != m_mapOfCameraTransformationMatrix.end(); ++it) {
     vpVelocityTwistMatrix cVo;
     cVo.buildFrom(it->second);
     mapOfVelocityTwist[it->first] = cVo;
   }
-
-  //Map of robust for edge trackers
-  //Individual weights for each primitives and for each camera
-  std::map<std::string, vpRobust> mapOfEdgeRobustLines;
-  std::map<std::string, vpRobust> mapOfEdgeRobustCylinders;
-  std::map<std::string, vpRobust> mapOfEdgeRobustCircles;
-  //Init map of robust
-  for(std::map<std::string, vpMbEdgeTracker *>::const_iterator it = m_mapOfEdgeTrackers.begin();
-      it != m_mapOfEdgeTrackers.end(); ++it) {
-    mapOfEdgeRobustLines[it->first] = vpRobust(mapOfNumberOfLines[it->first]);
-    mapOfEdgeRobustLines[it->first].setIteration(0);
-
-    mapOfEdgeRobustCylinders[it->first] = vpRobust(mapOfNumberOfCylinders[it->first]);
-    mapOfEdgeRobustCylinders[it->first].setIteration(0);
-
-    mapOfEdgeRobustCircles[it->first] = vpRobust(mapOfNumberOfCircles[it->first]);
-    mapOfEdgeRobustCircles[it->first].setIteration(0);
-  }
-
-  //Map of robust for KLT trackers
-  std::map<std::string, vpRobust> mapOfKltRobusts;
-  for(std::map<std::string, vpMbKltTracker*>::const_iterator it = m_mapOfKltTrackers.begin();
-      it != m_mapOfKltTrackers.end(); ++it) {
-    mapOfKltRobusts[it->first] = vpRobust(2*mapOfNbInfos[it->first]);
-  }
-
-  //Individual primitive residuals for MBT for all the cameras
-  vpColVector error_lines;
-  vpColVector error_cylinders;
-  vpColVector error_circles;
-
-  //Individual primitive weights for MBT for all the cameras
-  vpColVector w_lines;
-  vpColVector w_cylinders;
-  vpColVector w_circles;
-
-  //Map of primitive weights for each camera and for MBT
-  std::map<std::string, vpColVector> mapOfWeightLines;
-  std::map<std::string, vpColVector> mapOfWeightCylinders;
-  std::map<std::string, vpColVector> mapOfWeightCircles;
 
   //Variables used in the minimization process
   double residu = 0;
   double residu_1 = -1;
   unsigned int iter = 0;
 
-  vpMatrix *L;
-  vpColVector *R;
   vpMatrix L_true;
   vpMatrix LVJ_true;
-  vpColVector w_true;
 
   vpColVector v;
-  vpHomography H;
 
   vpMatrix LTL;
   vpColVector LTR;
 
-  while( ((int)((residu - residu_1)*1e8) !=0 )  && (iter<maxIter) ){
-    L = new vpMatrix();
-    R = new vpColVector();
 
-    //MBT
-    error_lines.resize(0);
-    error_cylinders.resize(0);
-    error_circles.resize(0);
-
-    std::map<std::string, vpColVector> mapOfErrorLines;
-    std::map<std::string, vpColVector> mapOfErrorCylinders;
-    std::map<std::string, vpColVector> mapOfErrorCircles;
-
-    vpColVector R_mbt;
-    vpMatrix L_mbt;
-    if(nbrow >= 4) {
-      for(std::map<std::string, vpMbEdgeTracker *>::const_iterator it = m_mapOfEdgeTrackers.begin();
-          it != m_mapOfEdgeTrackers.end(); ++it) {
-        vpMatrix L_tmp(mapOfNumberOfRows[it->first], 6);
-        vpColVector error_lines_tmp(mapOfNumberOfLines[it->first]);
-        vpColVector error_cylinders_tmp(mapOfNumberOfCylinders[it->first]);
-        vpColVector error_circles_tmp(mapOfNumberOfCircles[it->first]);
-
-        //Set the corresponding cMo for the current camera
-        it->second->cMo = m_mapOfCameraTransformationMatrix[it->first]*cMo;
-
-        vpColVector R_tmp;
-        R_tmp.resize(mapOfNumberOfRows[it->first]);
-        it->second->computeVVSSecondPhase(*mapOfImages[it->first], L_tmp, error_lines_tmp,
-            error_cylinders_tmp, error_circles_tmp, R_tmp, 0);
-        //Set the computed weight
-        it->second->m_w = R_tmp;
-        L_tmp = L_tmp*mapOfVelocityTwist[it->first];
-
-        //Stack interaction matrix for MBT
-        L_mbt.stack(L_tmp);
-        //Stack residual for MBT
-        R_mbt.stack(R_tmp);
-
-        error_lines.stack(error_lines_tmp);
-        error_cylinders.stack(error_cylinders_tmp);
-        error_circles.stack(error_circles_tmp);
-
-        mapOfErrorLines[it->first] = error_lines_tmp;
-        mapOfErrorCylinders[it->first] = error_cylinders_tmp;
-        mapOfErrorCircles[it->first] = error_circles_tmp;
-      }
-    }
-
-    //KLT
-    vpColVector R_klt;
-    vpMatrix L_klt;
-    for(std::map<std::string, vpMbKltTracker*>::const_iterator it1 = m_mapOfKltTrackers.begin();
-        it1 != m_mapOfKltTrackers.end(); ++it1) {
-      if(mapOfNbInfos[it1->first] > 0) {
-        unsigned int shift = 0;
-        vpColVector R_current;  // residu for the current camera for KLT
-        vpMatrix L_current;     // interaction matrix for the current camera for KLT
-        vpHomography H_current;
-
-        R_current.resize(2 * mapOfNbInfos[it1->first]);
-        L_current.resize(2 * mapOfNbInfos[it1->first], 6, 0);
-
-        //Use the ctTc0 variable instead of the formula in the monocular case
-        //to ensure that we have the same result than vpMbKltTracker
-        //as some slight differences can occur due to numerical imprecision
-        if(m_mapOfKltTrackers.size() == 1) {
-          computeVVSInteractionMatrixAndResidu(shift, R_current, L_current, H_current,
-              it1->second->kltPolygons, it1->second->kltCylinders, ctTc0);
-        } else {
-          vpHomogeneousMatrix c_curr_tTc_curr0 = m_mapOfCameraTransformationMatrix[it1->first] *
-              cMo * it1->second->c0Mo.inverse();
-          computeVVSInteractionMatrixAndResidu(shift, R_current, L_current, H_current,
-              it1->second->kltPolygons, it1->second->kltCylinders, c_curr_tTc_curr0);
-        }
-
-        //Transform the current interaction matrix with VelocityTwistMatrix
-        L_current = L_current*mapOfVelocityTwist[it1->first];
-
-        //Stack residual and interaction matrix
-        R_klt.stack(R_current);
-        L_klt.stack(L_current);
-      }
-    }
-
+  while ( ((int)((residu - residu_1)*1e8) !=0 )  && (iter < m_maxIter) ) {
+    computeVVSInteractionMatrixAndResidu(mapOfImages, mapOfVelocityTwist);
 
     bool reStartFromLastIncrement = false;
-    if(iter != 0 && m_optimizationMethod == vpMbTracker::LEVENBERG_MARQUARDT_OPT) {
-      if( m_error.sumSquare()/(double)(2*nbInfos + nbrow) > m_error_prev.sumSquare()/(double)(2*nbInfos + nbrow) ) {
-        mu *= 10.0;
-
-        if(mu > 1.0) {
-          throw vpTrackingException(vpTrackingException::fatalError, "Optimization diverged");
-        }
-
-        cMo = cMoPrev;
-        m_error = m_error_prev;
-        m_w = m_w_prev;
-        ctTc0 = ctTc0_Prev;
-        reStartFromLastIncrement = true;
-      }
+    computeVVSCheckLevenbergMarquardt(iter, m_error_hybridMulti, m_error_prev, cMoPrev, mu, reStartFromLastIncrement, &m_w_prev);
+    if (reStartFromLastIncrement) {
+      ctTc0 = ctTc0_Prev;
     }
 
-    if(iter == 0) {
-      m_w.resize(nbrow + 2*nbInfos);
-      m_w = 1;
-
-      w_true.resize(nbrow + 2*nbInfos);
-    }
-
-    if(!reStartFromLastIncrement) {
-      //MBT
-      w_lines.resize(0);
-      w_cylinders.resize(0);
-      w_circles.resize(0);
-
-      //Compute the weights for MBT
-      computeVVSSecondPhaseWeights(iter, nbrow, w_mbt, w_lines, w_cylinders, w_circles, mapOfNumberOfLines,
-          mapOfNumberOfCylinders, mapOfNumberOfCircles, mapOfWeightLines, mapOfWeightCylinders, mapOfWeightCircles,
-          mapOfErrorLines, mapOfErrorCylinders, mapOfErrorCircles, mapOfEdgeRobustLines, mapOfEdgeRobustCylinders,
-          mapOfEdgeRobustCircles, thresholdMBT);
-
-      for(unsigned int cpt = 0, cpt_lines = 0, cpt_cylinders = 0, cpt_circles = 0; cpt < nbrow; cpt++) {
-        switch(indexOfFeatures[cpt]) {
-        case LINE:
-          w_mbt[cpt] = w_lines[cpt_lines];
-          cpt_lines++;
-          break;
-
-        case CYLINDER:
-          w_mbt[cpt] = w_cylinders[cpt_cylinders];
-          cpt_cylinders++;
-          break;
-
-        case CIRCLE:
-          w_mbt[cpt] = w_circles[cpt_circles];
-          cpt_circles++;
-          break;
-
-        default:
-          std::cerr << "Problem with feature type !" << std::endl;
-          break;
-        }
-      }
-
-      //KLT
-      vpColVector w_true_klt; //not used
-      //Compute the weights for KLT
-      computeVVSWeights(iter, nbInfos, mapOfNbInfos, R_klt, w_true_klt, w_klt, mapOfKltRobusts, thresholdKLT);
-
-
-      //Stack MBT first and then KLT
-      /* robust */
-      if(nbrow > 3) {
-        //Stack interaction matrix and residual from MBT
-        L->stack(L_mbt);
-        R->stack(R_mbt);
-      }
-
-      if(nbInfos > 3) {
-        //Stack interaction matrix and residual from KLT
-        L->stack(L_klt);
-        R->stack(R_klt);
-      }
+    if (!reStartFromLastIncrement) {
+      computeVVSWeights();
 
       //Set weight for m_w with the good weighting between MBT and KLT
-      unsigned int cpt = 0;
-      while( cpt < (nbrow + 2*nbInfos) ) {
-        if(cpt < (unsigned int) nbrow) {
-          m_w[cpt] = ((w_mbt[cpt] * factor[cpt]) * factorMBT);
+      for (unsigned int cpt = 0; cpt < m_nbrow + 2*m_nbInfos; cpt++) {
+        if (cpt < m_nbrow) {
+          m_w_hybridMulti[cpt] = ( m_w_hybridMulti[cpt] * m_factor[cpt]) * factorMBT;
+        } else {
+          m_w_hybridMulti[cpt] *= factorKLT;
         }
-        else {
-          m_w[cpt] = (w_klt[cpt-nbrow] * factorKLT);
-        }
-        cpt++;
       }
 
-      m_error = (*R);
-      if(computeCovariance) {
-        L_true = (*L);
-        if(!isoJoIdentity) {
+      if (computeCovariance) {
+        L_true = m_L_hybridMulti;
+        if (!isoJoIdentity) {
            vpVelocityTwistMatrix cVo;
            cVo.buildFrom(cMo);
-           LVJ_true = ( (*L)*cVo*oJo );
+           LVJ_true = ( m_L_hybridMulti*cVo*oJo );
         }
       }
 
@@ -434,81 +218,22 @@ void vpMbEdgeKltMultiTracker::computeVVS(std::map<std::string, const vpImage<uns
       residu = 0;
       double num = 0;
       double den = 0;
-      for (unsigned int i = 0; i < R->getRows(); i++) {
-        num += m_w[i]*vpMath::sqr((*R)[i]);
-        den += m_w[i];
 
-        w_true[i] = m_w[i];
-        (*R)[i] *= m_w[i];
-        if(compute_interaction) {
+      for (unsigned int i = 0; i < m_weightedError_hybridMulti.getRows(); i++) {
+        num += m_w_hybridMulti[i]*vpMath::sqr(m_error_hybridMulti[i]);
+        den += m_w_hybridMulti[i];
+
+        m_weightedError_hybridMulti[i] = m_error_hybridMulti[i] * m_w_hybridMulti[i];
+        if (m_computeInteraction) {
           for (unsigned int j = 0; j < 6; j++) {
-            (*L)[i][j] *= m_w[i];
+            m_L_hybridMulti[i][j] *= m_w_hybridMulti[i];
           }
         }
       }
 
       residu = sqrt(num/den);
 
-      if(isoJoIdentity) {
-        LTL = L->AtA();
-        computeJTR(*L, *R, LTR);
-
-        switch(m_optimizationMethod) {
-        case vpMbTracker::LEVENBERG_MARQUARDT_OPT:
-        {
-          vpMatrix LMA(LTL.getRows(), LTL.getCols());
-          LMA.eye();
-          vpMatrix LTLmuI = LTL + (LMA*mu);
-          v = -lambda*LTLmuI.pseudoInverse(LTLmuI.getRows()*std::numeric_limits<double>::epsilon())*LTR;
-
-          if(iter != 0) {
-            mu /= 10.0;
-          }
-
-          m_error_prev = m_error;
-          m_w_prev = m_w;
-          break;
-        }
-        case vpMbTracker::GAUSS_NEWTON_OPT:
-        default:
-          v = -lambda * LTL.pseudoInverse(LTL.getRows()*std::numeric_limits<double>::epsilon()) * LTR;
-          break;
-        }
-      }
-      else {
-        vpVelocityTwistMatrix cVo;
-        cVo.buildFrom(cMo);
-        vpMatrix LVJ = ((*L)*cVo*oJo);
-        vpMatrix LVJTLVJ = (LVJ).AtA();
-        vpColVector LVJTR;
-        computeJTR(LVJ, *R, LVJTR);
-
-        switch(m_optimizationMethod) {
-        case vpMbTracker::LEVENBERG_MARQUARDT_OPT:
-        {
-          vpMatrix LMA(LVJTLVJ.getRows(), LVJTLVJ.getCols());
-          LMA.eye();
-          vpMatrix LTLmuI = LVJTLVJ + (LMA*mu);
-          v = -lambda*LTLmuI.pseudoInverse(LTLmuI.getRows()*std::numeric_limits<double>::epsilon())*LVJTR;
-          v = cVo * v;
-
-          if(iter != 0) {
-            mu /= 10.0;
-          }
-
-          m_error_prev = m_error;
-          m_w_prev = m_w;
-          break;
-        }
-        case vpMbTracker::GAUSS_NEWTON_OPT:
-        default:
-        {
-          v = -lambda*LVJTLVJ.pseudoInverse(LVJTLVJ.getRows()*std::numeric_limits<double>::epsilon())*LVJTR;
-          v = cVo * v;
-          break;
-        }
-        }
-      }
+      computeVVSPoseEstimation(isoJoIdentity, iter, m_L_hybridMulti, LTL, m_weightedError_hybridMulti, m_error_hybridMulti, m_error_prev, LTR, mu, v, &m_w_hybridMulti, &m_w_prev);
 
       cMoPrev = cMo;
       ctTc0_Prev = ctTc0;
@@ -517,22 +242,100 @@ void vpMbEdgeKltMultiTracker::computeVVS(std::map<std::string, const vpImage<uns
     }
 
     iter++;
-
-    delete L;
-    delete R;
   }
 
-  if(computeCovariance) {
-    vpMatrix D;
-    D.diag(w_true);
+  computeCovarianceMatrixVVS(isoJoIdentity, m_w_hybridMulti, cMoPrev, L_true, LVJ_true, m_error_hybridMulti);
+}
 
-    // Note that here the covariance is computed on cMoPrev for time computation efficiency
-    if(isoJoIdentity) {
-        covarianceMatrix = vpMatrix::computeCovarianceMatrixVVS(cMoPrev,m_error,L_true,D);
+void vpMbEdgeKltMultiTracker::computeVVSInit() {
+  unsigned int totalNbRows = 2*m_nbInfos + m_nbrow;
+
+  m_L_hybridMulti.resize(totalNbRows, 6, false);
+  m_error_hybridMulti.resize(totalNbRows, false);
+
+  m_weightedError_hybridMulti.resize(totalNbRows, false);
+  m_w_hybridMulti.resize(totalNbRows, false);
+  m_w_hybridMulti = 1;
+
+  for (std::map<std::string, vpMbKltTracker*>::const_iterator it = m_mapOfKltTrackers.begin(); it != m_mapOfKltTrackers.end(); ++it) {
+    vpMbKltTracker *klt = it->second;
+    klt->computeVVSInit();
+  }
+}
+
+void vpMbEdgeKltMultiTracker::computeVVSInteractionMatrixAndResidu() {
+  throw vpException(vpException::fatalError, "vpMbEdgeKltMultiTracker::computeVVSInteractionMatrixAndResidu() should not be called!");
+}
+
+void vpMbEdgeKltMultiTracker::computeVVSInteractionMatrixAndResidu(std::map<std::string, const vpImage<unsigned char> *> &mapOfImages,
+                                                                   std::map<std::string, vpVelocityTwistMatrix> &mapOfVelocityTwist) {
+  unsigned int startIdx = 0;
+
+  if (m_nbrow >= 4) {
+    for (std::map<std::string, vpMbEdgeTracker *>::const_iterator it = m_mapOfEdgeTrackers.begin(); it != m_mapOfEdgeTrackers.end(); ++it) {
+      vpMbEdgeTracker *edge = it->second;
+
+      //Set the corresponding cMo for the current camera
+      it->second->cMo = m_mapOfCameraTransformationMatrix[it->first]*cMo;
+
+      edge->computeVVSInteractionMatrixAndResidu(*mapOfImages[it->first]);
+
+      //Stack interaction matrix for MBT
+      m_L_hybridMulti.insert(edge->m_L_edge*mapOfVelocityTwist[it->first], startIdx, 0);
+      //Stack residual for MBT
+      m_error_hybridMulti.insert(startIdx, edge->m_error_edge);
+
+      startIdx += edge->m_error_edge.getRows();
     }
-    else {
-        covarianceMatrix = vpMatrix::computeCovarianceMatrixVVS(cMoPrev,m_error,LVJ_true,D);
+  }
+
+  for (std::map<std::string, vpMbKltTracker*>::const_iterator it = m_mapOfKltTrackers.begin(); it != m_mapOfKltTrackers.end(); ++it) {
+    vpMbKltTracker *klt = it->second;
+
+    if (klt->m_nbInfos > 0) {
+
+      //Use the ctTc0 variable instead of the formula in the monocular case
+      //to ensure that we have the same result than vpMbKltTracker
+      //as some slight differences can occur due to numerical imprecision
+      if(m_mapOfKltTrackers.size() == 1) {
+        klt->ctTc0 = ctTc0;
+        klt->computeVVSInteractionMatrixAndResidu();
+      } else {
+        vpHomogeneousMatrix c_curr_tTc_curr0 = m_mapOfCameraTransformationMatrix[it->first] * cMo * klt->c0Mo.inverse();
+        klt->ctTc0 = c_curr_tTc_curr0;
+        klt->computeVVSInteractionMatrixAndResidu();
+      }
+
+      //Stack residual and interaction matrix
+      m_error_hybridMulti.insert(startIdx, klt->m_error_klt);
+      m_L_hybridMulti.insert(klt->m_L_klt*mapOfVelocityTwist[it->first], startIdx, 0);
+
+      startIdx += 2*klt->m_nbInfos;
     }
+  }
+}
+
+void vpMbEdgeKltMultiTracker::computeVVSWeights() {
+  unsigned int startIdx = 0;
+
+  for (std::map<std::string, vpMbEdgeTracker*>::const_iterator it = m_mapOfEdgeTrackers.begin(); it != m_mapOfEdgeTrackers.end(); ++it) {
+    vpMbEdgeTracker *edge = it->second;
+
+    //Compute weights
+    edge->computeVVSWeights();
+
+    m_w_hybridMulti.insert(startIdx, edge->m_w_edge);
+    startIdx += edge->m_w_edge.getRows();
+  }
+
+  for(std::map<std::string, vpMbKltTracker*>::const_iterator it = m_mapOfKltTrackers.begin(); it != m_mapOfKltTrackers.end(); ++it) {
+    vpMbKltTracker *klt = it->second;
+
+    //Compute weights
+    klt->computeVVSWeights(klt->m_robust_klt, klt->m_error_klt, klt->m_w_klt);
+
+    m_w_hybridMulti.insert(startIdx, klt->m_w_klt);
+    startIdx += klt->m_w_klt.getRows();
   }
 }
 
@@ -550,25 +353,22 @@ void vpMbEdgeKltMultiTracker::display(const vpImage<unsigned char>& I, const vpH
     const vpCameraParameters &cam_, const vpColor& col, const unsigned int thickness,
     const bool displayFullModel) {
   vpMbEdgeMultiTracker::display(I, cMo_, cam_, col, thickness, displayFullModel);
-//  vpMbKltMultiTracker::display(I, cMo_, cam_, col, thickness, displayFullModel);
 
   //Display only features for KLT trackers
   for(std::map<std::string, vpMbKltTracker*>::const_iterator it_klt = m_mapOfKltTrackers.begin();
       it_klt != m_mapOfKltTrackers.end(); ++it_klt) {
 
-    vpMbtDistanceKltPoints *kltpoly;
     for(std::list<vpMbtDistanceKltPoints*>::const_iterator it_pts = it_klt->second->kltPolygons.begin();
         it_pts != it_klt->second->kltPolygons.end(); ++it_pts){
-      kltpoly = *it_pts;
+      vpMbtDistanceKltPoints *kltpoly = *it_pts;
       if(displayFeatures && kltpoly->hasEnoughPoints() && kltpoly->isTracked() && kltpoly->polygon->isVisible()) {
           kltpoly->displayPrimitive(I);
       }
     }
 
-    vpMbtDistanceKltCylinder *kltPolyCylinder;
     for(std::list<vpMbtDistanceKltCylinder*>::const_iterator it_cyl = it_klt->second->kltCylinders.begin();
         it_cyl != it_klt->second->kltCylinders.end(); ++it_cyl){
-      kltPolyCylinder = *it_cyl;
+      vpMbtDistanceKltCylinder *kltPolyCylinder = *it_cyl;
       if(displayFeatures && kltPolyCylinder->isTracked() && kltPolyCylinder->hasEnoughPoints())
         kltPolyCylinder->displayPrimitive(I);
     }
@@ -595,19 +395,17 @@ void vpMbEdgeKltMultiTracker::display(const vpImage<vpRGBa>& I, const vpHomogene
   for(std::map<std::string, vpMbKltTracker*>::const_iterator it_klt = m_mapOfKltTrackers.begin();
       it_klt != m_mapOfKltTrackers.end(); ++it_klt) {
 
-    vpMbtDistanceKltPoints *kltpoly;
     for(std::list<vpMbtDistanceKltPoints*>::const_iterator it_pts = it_klt->second->kltPolygons.begin();
         it_pts != it_klt->second->kltPolygons.end(); ++it_pts){
-      kltpoly = *it_pts;
+      vpMbtDistanceKltPoints *kltpoly = *it_pts;
       if(displayFeatures && kltpoly->hasEnoughPoints() && kltpoly->isTracked() && kltpoly->polygon->isVisible()) {
           kltpoly->displayPrimitive(I);
       }
     }
 
-    vpMbtDistanceKltCylinder *kltPolyCylinder;
     for(std::list<vpMbtDistanceKltCylinder*>::const_iterator it_cyl = it_klt->second->kltCylinders.begin();
         it_cyl != it_klt->second->kltCylinders.end(); ++it_cyl){
-      kltPolyCylinder = *it_cyl;
+      vpMbtDistanceKltCylinder *kltPolyCylinder = *it_cyl;
       if(displayFeatures && kltPolyCylinder->isTracked() && kltPolyCylinder->hasEnoughPoints())
         kltPolyCylinder->displayPrimitive(I);
     }
@@ -638,10 +436,9 @@ void vpMbEdgeKltMultiTracker::display(const vpImage<unsigned char>& I1, const vp
   bool first = true;
   for(std::map<std::string, vpMbKltTracker*>::const_iterator it_klt = m_mapOfKltTrackers.begin();
       it_klt != m_mapOfKltTrackers.end(); ++it_klt) {
-    vpMbtDistanceKltPoints *kltpoly;
     for(std::list<vpMbtDistanceKltPoints*>::const_iterator it_pts = it_klt->second->kltPolygons.begin();
         it_pts != it_klt->second->kltPolygons.end(); ++it_pts){
-      kltpoly = *it_pts;
+      vpMbtDistanceKltPoints *kltpoly = *it_pts;
       if(displayFeatures && kltpoly->hasEnoughPoints() && kltpoly->isTracked() && kltpoly->polygon->isVisible()) {
         if(first) {
           kltpoly->displayPrimitive(I1);
@@ -651,10 +448,9 @@ void vpMbEdgeKltMultiTracker::display(const vpImage<unsigned char>& I1, const vp
       }
     }
 
-    vpMbtDistanceKltCylinder *kltPolyCylinder;
     for(std::list<vpMbtDistanceKltCylinder*>::const_iterator it_cyl = it_klt->second->kltCylinders.begin();
         it_cyl != it_klt->second->kltCylinders.end(); ++it_cyl){
-      kltPolyCylinder = *it_cyl;
+      vpMbtDistanceKltCylinder *kltPolyCylinder = *it_cyl;
       if(displayFeatures && kltPolyCylinder->isTracked() && kltPolyCylinder->hasEnoughPoints()) {
         if(first) {
           kltPolyCylinder->displayPrimitive(I1);
@@ -692,10 +488,9 @@ void vpMbEdgeKltMultiTracker::display(const vpImage<vpRGBa>& I1, const vpImage<v
   bool first = true;
   for(std::map<std::string, vpMbKltTracker*>::const_iterator it_klt = m_mapOfKltTrackers.begin();
       it_klt != m_mapOfKltTrackers.end(); ++it_klt) {
-    vpMbtDistanceKltPoints *kltpoly;
     for(std::list<vpMbtDistanceKltPoints*>::const_iterator it_pts = it_klt->second->kltPolygons.begin();
         it_pts != it_klt->second->kltPolygons.end(); ++it_pts){
-      kltpoly = *it_pts;
+      vpMbtDistanceKltPoints *kltpoly = *it_pts;
       if(displayFeatures && kltpoly->hasEnoughPoints() && kltpoly->isTracked() && kltpoly->polygon->isVisible()) {
         if(first) {
           kltpoly->displayPrimitive(I1);
@@ -705,10 +500,9 @@ void vpMbEdgeKltMultiTracker::display(const vpImage<vpRGBa>& I1, const vpImage<v
       }
     }
 
-    vpMbtDistanceKltCylinder *kltPolyCylinder;
     for(std::list<vpMbtDistanceKltCylinder*>::const_iterator it_cyl = it_klt->second->kltCylinders.begin();
         it_cyl != it_klt->second->kltCylinders.end(); ++it_cyl){
-      kltPolyCylinder = *it_cyl;
+      vpMbtDistanceKltCylinder *kltPolyCylinder = *it_cyl;
       if(displayFeatures && kltPolyCylinder->isTracked() && kltPolyCylinder->hasEnoughPoints()) {
         if(first) {
           kltPolyCylinder->displayPrimitive(I1);
@@ -745,19 +539,17 @@ void vpMbEdgeKltMultiTracker::display(const std::map<std::string, const vpImage<
 
     std::map<std::string, const vpImage<unsigned char> *>::const_iterator it_img = mapOfImages.find(it_klt->first);
     if(it_img != mapOfImages.end()) {
-      vpMbtDistanceKltPoints *kltpoly;
       for(std::list<vpMbtDistanceKltPoints*>::const_iterator it_pts = it_klt->second->kltPolygons.begin();
           it_pts != it_klt->second->kltPolygons.end(); ++it_pts) {
-        kltpoly = *it_pts;
+        vpMbtDistanceKltPoints *kltpoly = *it_pts;
         if(displayFeatures && kltpoly->hasEnoughPoints() && kltpoly->isTracked() && kltpoly->polygon->isVisible()) {
             kltpoly->displayPrimitive( *(it_img->second) );
         }
       }
 
-      vpMbtDistanceKltCylinder *kltPolyCylinder;
       for(std::list<vpMbtDistanceKltCylinder*>::const_iterator it_cyl = it_klt->second->kltCylinders.begin();
           it_cyl != it_klt->second->kltCylinders.end(); ++it_cyl) {
-        kltPolyCylinder = *it_cyl;
+        vpMbtDistanceKltCylinder *kltPolyCylinder = *it_cyl;
         if(displayFeatures && kltPolyCylinder->isTracked() && kltPolyCylinder->hasEnoughPoints())
           kltPolyCylinder->displayPrimitive( *(it_img->second) );
       }
@@ -788,19 +580,17 @@ void vpMbEdgeKltMultiTracker::display(const std::map<std::string, const vpImage<
 
     std::map<std::string, const vpImage<vpRGBa> *>::const_iterator it_img = mapOfImages.find(it_klt->first);
     if(it_img != mapOfImages.end()) {
-      vpMbtDistanceKltPoints *kltpoly;
       for(std::list<vpMbtDistanceKltPoints*>::const_iterator it_pts = it_klt->second->kltPolygons.begin();
           it_pts != it_klt->second->kltPolygons.end(); ++it_pts){
-        kltpoly = *it_pts;
+        vpMbtDistanceKltPoints *kltpoly = *it_pts;
         if(displayFeatures && kltpoly->hasEnoughPoints() && kltpoly->isTracked() && kltpoly->polygon->isVisible()) {
             kltpoly->displayPrimitive( *(it_img->second) );
         }
       }
 
-      vpMbtDistanceKltCylinder *kltPolyCylinder;
       for(std::list<vpMbtDistanceKltCylinder*>::const_iterator it_cyl = it_klt->second->kltCylinders.begin();
           it_cyl != it_klt->second->kltCylinders.end(); ++it_cyl){
-        kltPolyCylinder = *it_cyl;
+        vpMbtDistanceKltCylinder *kltPolyCylinder = *it_cyl;
         if(displayFeatures && kltPolyCylinder->isTracked() && kltPolyCylinder->hasEnoughPoints())
           kltPolyCylinder->displayPrimitive( *(it_img->second) );
       }
@@ -993,13 +783,13 @@ void vpMbEdgeKltMultiTracker::init(const vpImage<unsigned char>& /*I*/) {
 
 #ifdef VISP_HAVE_MODULE_GUI
 /*!
-  Initialise the tracking by clicking on the image points corresponding to the
-  3D points (object frame) in the list points3D_list.
+  Initialise the tracker by clicking in the image on the pixels that correspond to the
+  3D points whose coordinates are given in \e points3D_list.
 
-  \param I : Input image
-  \param points3D_list : List of the 3D points (object frame).
-  \param displayFile : Path to the image used to display the help. This functionality
-  is only available if visp_io module is used.
+  \param I : Input image where the user has to click.
+  \param points3D_list : List of at least 4 3D points with coordinates expressed in meters in the object frame.
+  \param displayFile : Path to the image used to display the help. This image may be used to show where to click.
+  This functionality is only available if visp_io module is used.
 */
 void vpMbEdgeKltMultiTracker::initClick(const vpImage<unsigned char>& I, const std::vector<vpPoint> &points3D_list,
                        const std::string &displayFile) {
@@ -1013,24 +803,29 @@ void vpMbEdgeKltMultiTracker::initClick(const vpImage<unsigned char>& I, const s
 }
 
 /*!
-  Initialize the tracking by clicking on the image points corresponding to the
-  3D points (object frame) in the file initFile. The structure of this file
-  is (without the comments):
+  Initialise the tracker by clicking in the image on the pixels that correspond to the
+  3D points whose coordinates are extracted from a file. In this file, comments starting
+  with # character are allowed. Notice that 3D point coordinates are expressed in meter
+  in the object frame with their X, Y and Z values.
+
+  The structure of this file is the following:
+
   \code
-  4 // Number of points in the file (minimum is four)
-  0.01 0.01 0.01    //  \
-  ...               //  | 3D coordinates in the object basis
-  0.01 -0.01 -0.01  // /
+  # 3D point coordinates
+  4                 # Number of points in the file (minimum is four)
+  0.01 0.01 0.01    # \
+  ...               #  | 3D coordinates in the object frame (X, Y, Z)
+  0.01 -0.01 -0.01  # /
   \endcode
 
-  \param I : Input image.
-  \param initFile : File containing the points where to click.
-  \param displayHelp : Optional display of an image ( 'initFile.ppm' ). This
-    image may be used to show where to click.
+  \param I : Input image where the user has to click.
+  \param initFile : File containing the coordinates of at least 4 3D points the user has
+  to click in the image. This file should have .init extension (ie teabox.init).
+  \param displayHelp : Optionnal display of an image that should have the same generic name
+  as the init file (ie teabox.ppm). This image may be used to show where to click. This
+  functionality is only available if visp_io module is used.
 
-  \exception vpException::ioError : The file specified in initFile doesn't exist.
-
-  \sa setPathNamePoseSaving()
+  \exception vpException::ioError : The file specified in \e initFile doesn't exist.
 */
 void vpMbEdgeKltMultiTracker::initClick(const vpImage<unsigned char>& I, const std::string& initFile, const bool displayHelp) {
   //Cannot use directly set pose for KLT as it is different than for the edge case
@@ -1043,27 +838,34 @@ void vpMbEdgeKltMultiTracker::initClick(const vpImage<unsigned char>& I, const s
 }
 
 /*!
-  Initialize the tracking by clicking on the image points corresponding to the
-  3D points (object frame) in the file initFile. The structure of this file
-  is (without the comments):
+  Initialise the tracker by clicking in the reference image on the pixels that correspond to the
+  3D points whose coordinates are extracted from a file. In this file, comments starting
+  with # character are allowed. Notice that 3D point coordinates are expressed in meter
+  in the object frame with their X, Y and Z values.
+
+  The structure of this file is the following:
+
   \code
-  4 // Number of points in the file (minimum is four)
-  0.01 0.01 0.01    //  \
-  ...               //  | 3D coordinates in the object basis
-  0.01 -0.01 -0.01  // /
+  # 3D point coordinates
+  4                 # Number of points in the file (minimum is four)
+  0.01 0.01 0.01    # \
+  ...               #  | 3D coordinates in the object frame (X, Y, Z)
+  0.01 -0.01 -0.01  # /
   \endcode
 
   \param I1 : Input image for the first camera.
   \param I2 : Input image for the second camera.
-  \param initFile1 : File containing the points where to click for the first camera.
-  \param initFile2 : File containing the points where to click for the second camera.
-  \param displayHelp : Optional display of an image ( 'initFile.ppm' ). This
-    image may be used to show where to click.
+  \param initFile1 : File containing the coordinates of at least 4 3D points the user has
+  to click in the image acquired by the first camera. This file should have .init extension (ie teabox.init).
+  \param initFile2 : File containing the coordinates of at least 4 3D points the user has
+  to click in the image acquired by the second camera. This file should have .init extension.
+  \param displayHelp : Optionnal display of an image that should have the same generic name
+  as the init file (ie teabox.ppm). This image may be used to show where to click. This
+  functionality is only available if visp_io module is used.
+
   \param firstCameraIsReference : If true, the first camera is the reference, otherwise it is the second one.
 
-  \exception vpException::ioError : The file specified in initFile doesn't exist.
-
-  \sa setPathNamePoseSaving()
+  \exception vpException::ioError : The file specified in \e initFile doesn't exist.
 */
 void vpMbEdgeKltMultiTracker::initClick(const vpImage<unsigned char>& I1, const vpImage<unsigned char> &I2,
     const std::string& initFile1, const std::string& initFile2, const bool displayHelp, const bool firstCameraIsReference) {
@@ -1084,25 +886,29 @@ void vpMbEdgeKltMultiTracker::initClick(const vpImage<unsigned char>& I1, const 
 }
 
 /*!
-  Initialize the tracking by clicking on the image points corresponding to the
-  3D points (object frame) in the file initFile for the reference camera.
-  The other cameras will be automatically initialized and the camera transformation matrices have to be set before.
-  The structure of this file is (without the comments):
+  Initialise the tracker by clicking in the reference image on the pixels that correspond to the
+  3D points whose coordinates are extracted from a file. In this file, comments starting
+  with # character are allowed. Notice that 3D point coordinates are expressed in meter
+  in the object frame with their X, Y and Z values.
+
+  The structure of this file is the following:
+
   \code
-  4 // Number of points in the file (minimum is four)
-  0.01 0.01 0.01    //  \
-  ...               //  | 3D coordinates in the object basis
-  0.01 -0.01 -0.01  // /
+  # 3D point coordinates
+  4                 # Number of points in the file (minimum is four)
+  0.01 0.01 0.01    # \
+  ...               #  | 3D coordinates in the object frame (X, Y, Z)
+  0.01 -0.01 -0.01  # /
   \endcode
 
   \param mapOfImages : Map of images.
   \param initFile : File containing the points where to click for the reference camera.
-  \param displayHelp : Optional display of an image ( 'initFile.ppm' ). This
-    image may be used to show where to click.
+  \param displayHelp : Optionnal display of an image that should have the same generic name
+  as the init file (ie teabox.ppm). This image may be used to show where to click. This
+  functionality is only available if visp_io module is used.
 
-  \exception vpException::ioError : The file specified in initFile doesn't exist.
+  \exception vpException::ioError : The file specified in \e initFile doesn't exist.
 
-  \sa setPathNamePoseSaving()
 */
 void vpMbEdgeKltMultiTracker::initClick(const std::map<std::string, const vpImage<unsigned char> *> &mapOfImages,
       const std::string &initFile, const bool displayHelp) {
@@ -1118,26 +924,30 @@ void vpMbEdgeKltMultiTracker::initClick(const std::map<std::string, const vpImag
 }
 
 /*!
-  Initialize the tracking by clicking on the image points corresponding to the
-  3D points (object frame) in the file initFile.
+  Initialise the tracker by clicking in the reference image on the pixels that correspond to the
+  3D points whose coordinates are extracted from a file. In this file, comments starting
+  with # character are allowed. Notice that 3D point coordinates are expressed in meter
+  in the object frame with their X, Y and Z values.
+
+  The structure of this file is the following:
+
+  \code
+  # 3D point coordinates
+  4                 # Number of points in the file (minimum is four)
+  0.01 0.01 0.01    # \
+  ...               #  | 3D coordinates in the object frame (X, Y, Z)
+  0.01 -0.01 -0.01  # /
+  \endcode
+
   The cameras that have not an init file will be automatically initialized but
   the camera transformation matrices have to be set before.
-  The structure of this file is (without the comments):
-  \code
-  4 // Number of points in the file (minimum is four)
-  0.01 0.01 0.01    //  \
-  ...               //  | 3D coordinates in the object basis
-  0.01 -0.01 -0.01  // /
-  \endcode
 
   \param mapOfImages : Map of images.
   \param mapOfInitFiles : map of files containing the points where to click for each camera.
-  \param displayHelp : Optional display of an image ( 'initFile.ppm' ). This
-    image may be used to show where to click.
+  \param displayHelp : Optional display of an image (ie teabox.ppm). This
+  image may be used to show where to click.
 
-  \exception vpException::ioError : The file specified in initFile doesn't exist.
-
-  \sa setPathNamePoseSaving()
+  \exception vpException::ioError : The file specified in \e initFile doesn't exist.
 */
 void vpMbEdgeKltMultiTracker::initClick(const std::map<std::string, const vpImage<unsigned char> *> &mapOfImages,
       const std::map<std::string, std::string> &mapOfInitFiles, const bool displayHelp) {
@@ -1196,7 +1006,7 @@ void vpMbEdgeKltMultiTracker::initFromPose(const vpImage<unsigned char>& I, cons
   }
 
   char s[FILENAME_MAX];
-  std::fstream finit ;
+  std::fstream finit;
   vpPoseVector init_pos;
 
   std::string ext = ".pos";
@@ -1207,7 +1017,7 @@ void vpMbEdgeKltMultiTracker::initFromPose(const vpImage<unsigned char>& I, cons
   else
     sprintf(s,"%s.pos", initFile.c_str());
 
-  finit.open(s,std::ios::in) ;
+  finit.open(s,std::ios::in);
   if (finit.fail()){
     std::cerr << "cannot read " << s << std::endl;
     throw vpException(vpException::ioError, "cannot read init file");
@@ -1289,49 +1099,49 @@ void vpMbEdgeKltMultiTracker::initFromPose(const std::map<std::string, const vpI
   vpMbKltMultiTracker::initFromPose(mapOfImages, mapOfCameraPoses);
 }
 
-unsigned int vpMbEdgeKltMultiTracker::initMbtTracking(std::vector<FeatureType> &indexOfFeatures,
-    std::map<std::string, unsigned int> &mapOfNumberOfRows,
-    std::map<std::string, unsigned int> &mapOfNumberOfLines,
-    std::map<std::string, unsigned int> &mapOfNumberOfCylinders,
-    std::map<std::string, unsigned int> &mapOfNumberOfCircles) {
-  unsigned int nbrow = 0;
-  unsigned int nberrors_lines = 0;
-  unsigned int nberrors_cylinders = 0;
-  unsigned int nberrors_circles = 0;
+unsigned int vpMbEdgeKltMultiTracker::initMbtTracking(std::map<std::string, const vpImage<unsigned char> *> &mapOfImages, unsigned int lvl) {
+  vpMbEdgeTracker *edge = NULL;
+  unsigned int nbrows = 0;
 
-  for(std::map<std::string, vpMbEdgeTracker *>::const_iterator it1 = m_mapOfEdgeTrackers.begin();
-      it1 != m_mapOfEdgeTrackers.end(); ++it1) {
-    unsigned int nrows = 0;
-    unsigned int nlines = 0;
-    unsigned int ncylinders = 0;
-    unsigned int ncircles = 0;
+  m_factor.resize(0, false);
+  for (std::map<std::string, vpMbEdgeTracker*>::const_iterator it = m_mapOfEdgeTrackers.begin(); it != m_mapOfEdgeTrackers.end(); ++it) {
+    edge = it->second;
 
-    nrows = it1->second->initMbtTracking(nlines, ncylinders, ncircles);
+    try {
+      edge->computeVVSInit();
 
-    mapOfNumberOfRows[it1->first] = nrows;
-    mapOfNumberOfLines[it1->first] = nlines;
-    mapOfNumberOfCylinders[it1->first] = ncylinders;
-    mapOfNumberOfCircles[it1->first] = ncircles;
+      unsigned int nbrow = edge->m_error_edge.getRows();
+      nbrows += nbrow;
 
-    nbrow += nrows;
-    nberrors_lines += nlines;
-    nberrors_cylinders += ncylinders;
-    nberrors_circles += ncircles;
+      //Set the corresponding cMo for each camera
+      //Used in computeVVSFirstPhaseFactor with computeInteractionMatrixError
+      edge->cMo = m_mapOfCameraTransformationMatrix[it->first] * cMo;
 
-    for(unsigned int i = 0; i < nlines; i++) {
-      indexOfFeatures.push_back(LINE);
-    }
+      edge->computeVVSFirstPhaseFactor(*mapOfImages[it->first], lvl);
+      m_factor.stack(edge->m_factor);
+    } catch (...) {
+      edge->m_L_edge.resize(0, 6, false);
+      edge->m_error_edge.resize(0, false);
 
-    for(unsigned int i = 0; i < ncylinders; i++) {
-      indexOfFeatures.push_back(CYLINDER);
-    }
+      edge->m_weightedError_edge.resize(0, false);
+      edge->m_w_edge.resize(0, false);
+      edge->m_factor.resize(0, false);
 
-    for(unsigned int i = 0; i < ncircles; i++) {
-      indexOfFeatures.push_back(CIRCLE);
+      edge->m_robustLines.resize(0);
+      edge->m_robustCylinders.resize(0);
+      edge->m_robustCircles.resize(0);
+
+      edge->m_wLines.resize(0, false);
+      edge->m_wCylinders.resize(0, false);
+      edge->m_wCircles.resize(0, false);
+
+      edge->m_errorLines.resize(0, false);
+      edge->m_errorCylinders.resize(0, false);
+      edge->m_errorCircles.resize(0, false);
     }
   }
 
-  return nbrow;
+  return nbrows;
 }
 
 /*!
@@ -1454,64 +1264,52 @@ void vpMbEdgeKltMultiTracker::loadModel(const std::string &modelFile, const bool
   modelInitialised = true;
 }
 
-void vpMbEdgeKltMultiTracker::postTracking(std::map<std::string, const vpImage<unsigned char> *> &mapOfImages,
-    vpColVector &w_mbt, vpColVector &w_klt, std::map<std::string, unsigned int> &mapOfNumberOfRows,
-    std::map<std::string, unsigned int> &mapOfNbInfos, const unsigned int lvl) {
+void vpMbEdgeKltMultiTracker::postTracking(std::map<std::string, const vpImage<unsigned char> *> &mapOfImages, const unsigned int lvl) {
   //MBT
-  unsigned int cpt = 0;
-  for(std::map<std::string, unsigned int>::const_iterator it = mapOfNumberOfRows.begin(); it != mapOfNumberOfRows.end(); ++it) {
-    for(unsigned int i = 0; i < mapOfNumberOfRows[it->first]; i++) {
-      m_mapOfEdgeTrackers[it->first]->m_w[i] = w_mbt[i+cpt];
-    }
+  vpMbEdgeTracker *edge = NULL;
+  for (std::map<std::string, vpMbEdgeTracker*>::const_iterator it = m_mapOfEdgeTrackers.begin(); it != m_mapOfEdgeTrackers.end(); ++it) {
+    edge = it->second;
 
-    m_mapOfEdgeTrackers[it->first]->updateMovingEdgeWeights();
-    cpt += mapOfNumberOfRows[it->first];
-  }
+    edge->updateMovingEdgeWeights();
 
-  if(displayFeatures) {
-    for(std::map<std::string, vpMbEdgeTracker*>::const_iterator it = m_mapOfEdgeTrackers.begin();
-                it != m_mapOfEdgeTrackers.end(); ++it) {
-      it->second->displayFeaturesOnImage(*mapOfImages[it->first], lvl);
+    if (displayFeatures) {
+      edge->displayFeaturesOnImage(*mapOfImages[it->first], lvl);
     }
   }
 
   //KLT
-  vpMbKltMultiTracker::postTracking(mapOfImages, mapOfNbInfos, w_klt);
+  vpMbKltMultiTracker::postTracking(mapOfImages);
 
   // Looking for new visible face
   bool newvisibleface = false;
-  for(std::map<std::string, vpMbEdgeTracker*>::const_iterator it = m_mapOfEdgeTrackers.begin();
-      it != m_mapOfEdgeTrackers.end(); ++it) {
-    it->second->visibleFace(*mapOfImages[it->first], it->second->cMo, newvisibleface);
+  for(std::map<std::string, vpMbEdgeTracker*>::const_iterator it = m_mapOfEdgeTrackers.begin(); it != m_mapOfEdgeTrackers.end(); ++it) {
+    edge = it->second;
+    edge->visibleFace(*mapOfImages[it->first], it->second->cMo, newvisibleface);
   }
 
   if(useScanLine) {
-    for(std::map<std::string, vpMbEdgeTracker*>::const_iterator it = m_mapOfEdgeTrackers.begin();
-                it != m_mapOfEdgeTrackers.end(); ++it) {
-      it->second->faces.computeClippedPolygons(it->second->cMo, it->second->cam);
-      it->second->faces.computeScanLineRender(it->second->cam, mapOfImages[it->first]->getWidth(),
-          mapOfImages[it->first]->getHeight());
+    for(std::map<std::string, vpMbEdgeTracker*>::const_iterator it = m_mapOfEdgeTrackers.begin(); it != m_mapOfEdgeTrackers.end(); ++it) {
+      edge = it->second;
+
+      edge->faces.computeClippedPolygons(it->second->cMo, it->second->cam);
+      edge->faces.computeScanLineRender(it->second->cam, mapOfImages[it->first]->getWidth(), mapOfImages[it->first]->getHeight());
     }
   }
 
-  try {
-    for(std::map<std::string, vpMbEdgeTracker*>::const_iterator it = m_mapOfEdgeTrackers.begin();
-                it != m_mapOfEdgeTrackers.end(); ++it) {
-      it->second->updateMovingEdge(*mapOfImages[it->first]);
-    }
-  } catch(vpException &e) {
-    throw e;
+  for(std::map<std::string, vpMbEdgeTracker*>::const_iterator it = m_mapOfEdgeTrackers.begin(); it != m_mapOfEdgeTrackers.end(); ++it) {
+    edge = it->second;
+    edge->updateMovingEdge(*mapOfImages[it->first]);
   }
 
-  for(std::map<std::string, vpMbEdgeTracker*>::const_iterator it = m_mapOfEdgeTrackers.begin();
-      it != m_mapOfEdgeTrackers.end(); ++it) {
-    it->second->initMovingEdge(*mapOfImages[it->first], it->second->cMo);
+  for(std::map<std::string, vpMbEdgeTracker*>::const_iterator it = m_mapOfEdgeTrackers.begin(); it != m_mapOfEdgeTrackers.end(); ++it) {
+    edge = it->second;
+    edge->initMovingEdge(*mapOfImages[it->first], it->second->cMo);
 
     // Reinit the moving edge for the lines which need it.
-    it->second->reinitMovingEdge(*mapOfImages[it->first], it->second->cMo);
+    edge->reinitMovingEdge(*mapOfImages[it->first], it->second->cMo);
 
     if(computeProjError) {
-      it->second->computeProjectionError(*mapOfImages[it->first]);
+      edge->computeProjectionError(*mapOfImages[it->first]);
     }
   }
 }
@@ -2008,7 +1806,7 @@ void vpMbEdgeKltMultiTracker::setPose(const vpImage<unsigned char> &I, const vpH
   \param firstCameraIsReference : if true, the first camera is the reference, otherwise it is the second one.
 */
 void vpMbEdgeKltMultiTracker::setPose(const vpImage<unsigned char> &I1, const vpImage<unsigned char> &I2,
-    const vpHomogeneousMatrix &c1Mo, const vpHomogeneousMatrix c2Mo, const bool firstCameraIsReference) {
+    const vpHomogeneousMatrix &c1Mo, const vpHomogeneousMatrix &c2Mo, const bool firstCameraIsReference) {
   vpMbEdgeMultiTracker::setPose(I1, I2, c1Mo, c2Mo, firstCameraIsReference);
   vpMbKltMultiTracker::setPose(I1, I2, c1Mo, c2Mo, firstCameraIsReference);
 }
@@ -2178,73 +1976,31 @@ void vpMbEdgeKltMultiTracker::track(std::map<std::string, const vpImage<unsigned
     }
   }
 
-  std::map<std::string, unsigned int> mapOfNbInfos;
-  std::map<std::string, unsigned int> mapOfNbFaceUsed;
-
   try {
-    vpMbKltMultiTracker::preTracking(mapOfImages, mapOfNbInfos, mapOfNbFaceUsed);
-  } catch(/*vpException &e*/...) {
-//    std::cerr << "Catch an exception in vpMbKltMultiTracker::preTracking: " << e.what() << std::endl;
-  }
-
-  vpColVector w_klt;
+    vpMbKltMultiTracker::preTracking(mapOfImages);
+  } catch(...) { }
 
   //MBT: track moving edges
   trackMovingEdges(mapOfImages);
 
-  vpColVector w_mbt;
-  std::map<std::string, unsigned int> mapOfNumberOfRows;
-  computeVVS(mapOfImages, mapOfNumberOfRows, mapOfNbInfos, w_mbt, w_klt);
+  computeVVS(mapOfImages);
 
-  postTracking(mapOfImages, w_mbt, w_klt, mapOfNumberOfRows, mapOfNbInfos, 0);
+  postTracking(mapOfImages, 0);
 
   if(computeProjError) {
     vpMbEdgeMultiTracker::computeProjectionError();
   }
 }
 
-unsigned int vpMbEdgeKltMultiTracker::trackFirstLoop(std::map<std::string, const vpImage<unsigned char> *> &mapOfImages,
-    vpColVector &factor, std::vector<FeatureType> &indexOfFeatures,
-    std::map<std::string, unsigned int> &mapOfNumberOfRows,
-    std::map<std::string, unsigned int> &mapOfNumberOfLines,
-    std::map<std::string, unsigned int> &mapOfNumberOfCylinders,
-    std::map<std::string, unsigned int> &mapOfNumberOfCircles, const unsigned int lvl) {
-
-  //Number of moving edges
-  unsigned int nbrow = initMbtTracking(indexOfFeatures, mapOfNumberOfRows, mapOfNumberOfLines,
-      mapOfNumberOfCylinders, mapOfNumberOfCircles);
-
-  if (nbrow == 0) {
-      return nbrow;
-  }
-
-  factor = vpColVector();
-  for(std::map<std::string, vpMbEdgeTracker *>::const_iterator it = m_mapOfEdgeTrackers.begin();
-      it != m_mapOfEdgeTrackers.end(); ++it) {
-    //Set the corresponding cMo for each camera
-    //Used in computeVVSFirstPhaseFactor with computeInteractionMatrixError
-    it->second->cMo = m_mapOfCameraTransformationMatrix[it->first] * cMo;
-
-    vpColVector factor_tmp;
-    factor_tmp.resize(mapOfNumberOfRows[it->first]);
-    factor_tmp = 1;
-    it->second->computeVVSFirstPhaseFactor(*mapOfImages[it->first], factor_tmp, lvl);
-
-    factor.stack(factor_tmp);
-  }
-
-  return nbrow;
-}
-
 void vpMbEdgeKltMultiTracker::trackMovingEdges(std::map<std::string, const vpImage<unsigned char> *> &mapOfImages) {
-  for(std::map<std::string, vpMbEdgeTracker *>::const_iterator it1 = m_mapOfEdgeTrackers.begin();
-      it1 != m_mapOfEdgeTrackers.end(); ++it1) {
+  for(std::map<std::string, vpMbEdgeTracker *>::const_iterator it = m_mapOfEdgeTrackers.begin(); it != m_mapOfEdgeTrackers.end(); ++it) {
+    vpMbEdgeTracker *edge = it->second;
     //Track moving edges
     try {
-      it1->second->trackMovingEdge(*mapOfImages[it1->first]);
+      edge->trackMovingEdge(*mapOfImages[it->first]);
     } catch(...) {
       std::cerr << "Error in moving edge tracking" << std::endl;
-      throw ;
+      throw;
     }
   }
 }

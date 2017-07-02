@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -106,11 +106,10 @@ vpDot::vpDot()
 vpDot::vpDot(const vpImagePoint &ip)
   : m00(0.), m01(0.), m10(0.), m11(0.), m20(0.), m02(0.),
     mu11(0.), mu20(0.), mu02(0.), ip_connexities_list(), ip_edges_list(), connexityType(CONNEXITY_4),
-    cog(), u_min(0), u_max(0), v_min(0), v_max(0), graphics(false), thickness(1), maxDotSizePercentage(0.25),
+    cog(ip), u_min(0), u_max(0), v_min(0), v_max(0), graphics(false), thickness(1), maxDotSizePercentage(0.25),
     gray_level_out(0), mean_gray_level(0), gray_level_min(128), gray_level_max(255), grayLevelPrecision(0.85),
     gamma(1.5), compute_moment(false), nbMaxPoint(0)
 {
-  cog = ip;
 }
 
 /*!

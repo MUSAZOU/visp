@@ -1,7 +1,7 @@
 /****************************************************************************
  *
  * This file is part of the ViSP software.
- * Copyright (C) 2005 - 2015 by Inria. All rights reserved.
+ * Copyright (C) 2005 - 2017 by Inria. All rights reserved.
  *
  * This software is free software; you can redistribute it and/or
  * modify it under the terms of the GNU General Public License
@@ -46,6 +46,9 @@
 
 #include <visp3/core/vpImage.h>
 #include <visp3/core/vpDisplay.h>
+// Include WinSock2.h before windows.h to ensure that winsock.h is not included by windows.h 
+// since winsock.h and winsock2.h are incompatible
+#include <WinSock2.h> 
 #include <windows.h>
 #include <visp3/gui/vpWin32Window.h>
 #include <visp3/gui/vpWin32Renderer.h>
@@ -146,6 +149,7 @@ public:
 
   void setFont( const std::string &fontname );
   void setDownScalingFactor(unsigned int scale) { window.setScale(scale); m_scale = scale; }
+  void setDownScalingFactor(vpScaleType scaleType) { m_scaleType = scaleType; }
   void setTitle(const std::string &windowtitle);
   void setWindowPosition(int winx, int winy);
 
